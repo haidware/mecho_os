@@ -1,0 +1,1 @@
+flutterfire configure --project=YOUR_PROJECT_ID
