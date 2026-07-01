@@ -39,6 +39,7 @@ import 'features/profile/screens/help_support_screen.dart';
 import 'features/find_mech/screens/find_mech_requests_screen.dart';
 import 'features/reports/screens/reports_screen.dart';
 import 'features/profile/screens/settings_screen.dart';
+import 'features/community/screens/community_screen.dart';
 
 final ValueNotifier<Locale> appLocale = ValueNotifier(const Locale('en'));
 
@@ -143,6 +144,7 @@ class MechoApp extends StatelessWidget {
             AppRoutes.staffManagement: (context) => const PlaceholderScreen(title: 'Staff Management'),
             AppRoutes.bankDetails: (context) => const BankDetailsScreen(),
             AppRoutes.settings: (context) => const SettingsScreen(),
+            AppRoutes.community: (context) => const CommunityScreen(),
 
             // Reports
             AppRoutes.reportsDashboard: (context) => const ReportsScreen(),

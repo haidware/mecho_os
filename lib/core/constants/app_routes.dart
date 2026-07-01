@@ -75,6 +75,7 @@ class AppRoutes {
   static const String notifications = '/notifications';
   static const String messages = '/messages';
   static const String chat = '/chat';
+  static const String community = '/community';
 
   // Reports
   static const String reportsDashboard = '/reports-dashboard';

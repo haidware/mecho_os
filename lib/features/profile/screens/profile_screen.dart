@@ -124,6 +124,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 title: 'Help & Support',
                 onTap: () => Navigator.pushNamed(context, AppRoutes.chat), // Changed to help logic later
               ),
+              _buildProfileItem(
+                icon: Icons.forum_outlined,
+                title: 'Community',
+                onTap: () => Navigator.pushNamed(context, AppRoutes.community),
+              ),
 
               const SizedBox(height: 24),
               // ACCOUNT
