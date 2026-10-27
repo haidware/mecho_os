@@ -1,16 +1,17 @@
-static_sites:
-  - name: mecho-os-web
+services:
+  - type: web
+    name: mecho-os-web
+    runtime: static
     buildCommand: |
       git clone --depth 1 --branch 3.35.1 https://github.com/flutter/flutter.git /tmp/flutter
       /tmp/flutter/bin/flutter config --enable-web
       /tmp/flutter/bin/flutter pub get
       /tmp/flutter/bin/flutter build web --release --dart-define=SELLER_API_URL=https://mecho-os-seller-admin-api.onrender.com
-    publishPath: build/web
+    staticPublishPath: build/web
     routes:
       - type: rewrite
         source: /*
         destination: /index.html
-services:
   - type: web
     name: mecho-os-seller-admin-api
     runtime: node
