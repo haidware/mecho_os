@@ -6,7 +6,13 @@ import '../../../services/auth_service.dart';
 class LoginForm extends StatefulWidget {
   final String? initialEmail;
   final String? initialPassword;
-  const LoginForm({super.key, this.initialEmail, this.initialPassword});
+  final bool isSparePartSeller;
+  const LoginForm({
+    super.key,
+    this.initialEmail,
+    this.initialPassword,
+    this.isSparePartSeller = false,
+  });
 
   @override
   State<LoginForm> createState() => _LoginFormState();
@@ -40,15 +46,25 @@ class _LoginFormState extends State<LoginForm> {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
-    final result = await _authService.loginWorkshopUser(
-      email: _emailController.text.trim(),
-      password: _passwordController.text,
-    );
+    final result = widget.isSparePartSeller
+        ? await _authService.loginSparePartSeller(
+            email: _emailController.text.trim(),
+            password: _passwordController.text,
+          )
+        : await _authService.loginWorkshopUser(
+            email: _emailController.text.trim(),
+            password: _passwordController.text,
+          );
 
     if (mounted) {
       setState(() => _isLoading = false);
       if (result.success) {
-        Navigator.pushReplacementNamed(context, AppRoutes.home);
+        Navigator.pushReplacementNamed(
+          context,
+          widget.isSparePartSeller
+              ? AppRoutes.sparePartsSeller
+              : AppRoutes.home,
+        );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(result.message), backgroundColor: Colors.red),
@@ -70,7 +86,9 @@ class _LoginFormState extends State<LoginForm> {
               prefixIcon: const Icon(Icons.email_outlined, size: 20),
               filled: true,
               fillColor: AppColors.fieldFill,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none),
             ),
             validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
           ),
@@ -82,12 +100,19 @@ class _LoginFormState extends State<LoginForm> {
               hintText: 'Password',
               prefixIcon: const Icon(Icons.lock_outline, size: 20),
               suffixIcon: IconButton(
-                icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined, size: 20),
-                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                icon: Icon(
+                    _obscurePassword
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                    size: 20),
+                onPressed: () =>
+                    setState(() => _obscurePassword = !_obscurePassword),
               ),
               filled: true,
               fillColor: AppColors.fieldFill,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none),
             ),
             validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
           ),
@@ -100,12 +125,19 @@ class _LoginFormState extends State<LoginForm> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
                 elevation: 0,
               ),
               child: _isLoading
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Text('Login', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2))
+                  : const Text('Login',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ),
           ),
         ],

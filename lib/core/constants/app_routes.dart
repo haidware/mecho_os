@@ -1,5 +1,12 @@
 class AppRoutes {
+  static const String root = '/';
   static const String login = '/login';
+  static const String sparePartsSellerLogin = '/spareparts/login';
+  static const String sparePartsSeller = '/spareparts';
+  static const String mySellerOffers = '/spareparts/offers';
+  static const String myPartRequests = '/source-part/requests';
+  static const String partRequestDetail = '/source-part/request';
+  static const String partRequestChat = '/source-part/chat';
   static const String register = '/register';
   static const String home = '/home';
   static const String navigationList = '/navigation-list';

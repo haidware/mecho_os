@@ -39,6 +39,8 @@ import 'features/profile/screens/subscription_screen.dart';
 import 'features/profile/screens/workshop_profile_screen.dart';
 import 'features/profile/screens/help_support_screen.dart';
 import 'features/profile/screens/source_part_screen.dart';
+import 'features/profile/screens/spare_parts_marketplace_screen.dart';
+import 'features/profile/screens/part_request_chat_screen.dart';
 import 'features/reports/screens/reports_screen.dart';
 import 'features/profile/screens/settings_screen.dart';
 import 'features/community/screens/community_screen.dart';
@@ -124,7 +126,43 @@ class _MechoAppState extends State<MechoApp> {
             Locale('tr'),
           ],
           routes: {
+            AppRoutes.root: (context) => const LoginScreen(),
             AppRoutes.login: (context) => const LoginScreen(),
+            AppRoutes.sparePartsSellerLogin: (context) =>
+                const LoginScreen(isSparePartSeller: true),
+            AppRoutes.sparePartsSeller: (context) =>
+                const SparePartsSellerScreen(),
+            AppRoutes.mySellerOffers: (context) => const MySellerOffersScreen(),
+            AppRoutes.myPartRequests: (context) => const MyPartRequestsScreen(),
+            AppRoutes.partRequestDetail: (context) {
+              final args = ModalRoute.of(context)?.settings.arguments
+                  as Map<String, dynamic>?;
+              if (args == null || args['requestId'] == null) {
+                return const PlaceholderScreen(
+                  title: 'Part request details unavailable',
+                );
+              }
+              return PartRequestDetailScreen(
+                requestId: args['requestId'].toString(),
+                sellerMode: args['sellerMode'] == true,
+              );
+            },
+            AppRoutes.partRequestChat: (context) {
+              final args = ModalRoute.of(context)?.settings.arguments
+                  as Map<String, dynamic>?;
+              if (args == null ||
+                  args['requestId'] == null ||
+                  args['sellerUserId'] == null) {
+                return const PlaceholderScreen(
+                  title: 'Part request chat unavailable',
+                );
+              }
+              return PartRequestChatScreen(
+                requestId: args['requestId'].toString(),
+                sellerUserId: args['sellerUserId'].toString(),
+                sellerName: args['sellerName']?.toString() ?? 'Seller',
+              );
+            },
             AppRoutes.register: (context) => const RegisterScreen(),
             AppRoutes.home: (context) => const HomeScreen(),
             AppRoutes.navigationList: (context) => const NavigationListScreen(),
@@ -132,34 +170,46 @@ class _MechoAppState extends State<MechoApp> {
             // Vehicles Module
             AppRoutes.vehicleCheckin: (context) => const VehicleCheckinScreen(),
             AppRoutes.vehicleDetails: (context) => const VehicleDetailsScreen(),
-            AppRoutes.activeVehicles: (context) => const PlaceholderScreen(title: 'Active Vehicles'),
-            AppRoutes.vehicleHistory: (context) => const PlaceholderScreen(title: 'Vehicle History'),
+            AppRoutes.activeVehicles: (context) =>
+                const PlaceholderScreen(title: 'Active Vehicles'),
+            AppRoutes.vehicleHistory: (context) =>
+                const PlaceholderScreen(title: 'Vehicle History'),
 
             // Inspection Module
             AppRoutes.inspection: (context) => const InspectionScreen(),
-            AppRoutes.inspectionDetails: (context) => const InspectionDetailsScreen(),
-            AppRoutes.newInspection: (context) => const PlaceholderScreen(title: 'New Inspection'),
-            AppRoutes.inspectionReports: (context) => const PlaceholderScreen(title: 'Inspection Reports'),
+            AppRoutes.inspectionDetails: (context) =>
+                const InspectionDetailsScreen(),
+            AppRoutes.newInspection: (context) =>
+                const PlaceholderScreen(title: 'New Inspection'),
+            AppRoutes.inspectionReports: (context) =>
+                const PlaceholderScreen(title: 'Inspection Reports'),
 
             // Quotation Module
             AppRoutes.quotation: (context) => const QuotationScreen(),
-            AppRoutes.quotationPreview: (context) => const QuotationPreviewScreen(),
-            AppRoutes.quotationDetails: (context) => const PlaceholderScreen(title: 'Quotation Details'),
-            AppRoutes.quotationHistory: (context) => const PlaceholderScreen(title: 'Quotation History'),
+            AppRoutes.quotationPreview: (context) =>
+                const QuotationPreviewScreen(),
+            AppRoutes.quotationDetails: (context) =>
+                const PlaceholderScreen(title: 'Quotation Details'),
+            AppRoutes.quotationHistory: (context) =>
+                const PlaceholderScreen(title: 'Quotation History'),
 
             // Approval Module
             AppRoutes.approval: (context) => const ApprovalScreen(),
-            AppRoutes.approvalDetails: (context) => const ApprovalDetailsScreen(),
+            AppRoutes.approvalDetails: (context) =>
+                const ApprovalDetailsScreen(),
             AppRoutes.pendingApprovals: (context) => const NewApprovalsScreen(),
 
             // Service Module
             AppRoutes.service: (context) {
-              final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+              final args = ModalRoute.of(context)?.settings.arguments
+                  as Map<String, dynamic>?;
               final tabIndex = args?['tabIndex'] ?? 0;
               return ServiceScreen(initialTabIndex: tabIndex);
             },
-            AppRoutes.serviceJobDetails: (context) => const ServiceJobDetailsScreen(),
-            AppRoutes.completedServices: (context) => const PlaceholderScreen(title: 'Completed Services'),
+            AppRoutes.serviceJobDetails: (context) =>
+                const ServiceJobDetailsScreen(),
+            AppRoutes.completedServices: (context) =>
+                const PlaceholderScreen(title: 'Completed Services'),
 
             // Payments Module
             AppRoutes.invoice: (context) => const InvoiceScreen(),
@@ -169,40 +219,53 @@ class _MechoAppState extends State<MechoApp> {
 
             // Customers Module
             AppRoutes.customers: (context) => const CustomersScreen(),
-            AppRoutes.customerDetails: (context) => const CustomerDetailsScreen(),
+            AppRoutes.customerDetails: (context) =>
+                const CustomerDetailsScreen(),
             AppRoutes.addCustomer: (context) => const AddCustomerScreen(),
             AppRoutes.contactBook: (context) => const HelpSupportScreen(),
             AppRoutes.sourcePart: (context) => const SourcePartScreen(),
 
             // Maintenance Module
             AppRoutes.maintenance: (context) => const MaintenanceScreen(),
-            AppRoutes.maintenanceDetails: (context) => const MaintenanceDetailsScreen(),
-            AppRoutes.maintenanceCalendar: (context) => const PlaceholderScreen(title: 'Maintenance Calendar'),
-            AppRoutes.maintenanceRecords: (context) => const PlaceholderScreen(title: 'Maintenance Records'),
-            AppRoutes.reminderHistory: (context) => const PlaceholderScreen(title: 'Reminder History'),
+            AppRoutes.maintenanceDetails: (context) =>
+                const MaintenanceDetailsScreen(),
+            AppRoutes.maintenanceCalendar: (context) =>
+                const PlaceholderScreen(title: 'Maintenance Calendar'),
+            AppRoutes.maintenanceRecords: (context) =>
+                const PlaceholderScreen(title: 'Maintenance Records'),
+            AppRoutes.reminderHistory: (context) =>
+                const PlaceholderScreen(title: 'Reminder History'),
 
             // Subscriptions Module
             AppRoutes.subscription: (context) => const SubscriptionScreen(),
-            AppRoutes.currentPlan: (context) => const PlaceholderScreen(title: 'Current Plan'),
-            AppRoutes.subscriptionHistory: (context) => const PlaceholderScreen(title: 'Subscription History'),
-            AppRoutes.billing: (context) => const PlaceholderScreen(title: 'Billing'),
+            AppRoutes.currentPlan: (context) =>
+                const PlaceholderScreen(title: 'Current Plan'),
+            AppRoutes.subscriptionHistory: (context) =>
+                const PlaceholderScreen(title: 'Subscription History'),
+            AppRoutes.billing: (context) =>
+                const PlaceholderScreen(title: 'Billing'),
 
             // Profile & Settings
             AppRoutes.profile: (context) => const ProfileScreen(),
-            AppRoutes.workshopProfile: (context) => const WorkshopProfileScreen(),
-            AppRoutes.staffManagement: (context) => const PlaceholderScreen(title: 'Staff Management'),
+            AppRoutes.workshopProfile: (context) =>
+                const WorkshopProfileScreen(),
+            AppRoutes.staffManagement: (context) =>
+                const PlaceholderScreen(title: 'Staff Management'),
             AppRoutes.bankDetails: (context) => const BankDetailsScreen(),
             AppRoutes.settings: (context) => const SettingsScreen(),
             AppRoutes.community: (context) => const CommunityScreen(),
 
             // Reports
             AppRoutes.reportsDashboard: (context) => const ReportsScreen(),
-            AppRoutes.vehicleReports: (context) => const PlaceholderScreen(title: 'Vehicle Reports'),
-            AppRoutes.revenueReports: (context) => const PlaceholderScreen(title: 'Revenue Reports'),
+            AppRoutes.vehicleReports: (context) =>
+                const PlaceholderScreen(title: 'Vehicle Reports'),
+            AppRoutes.revenueReports: (context) =>
+                const PlaceholderScreen(title: 'Revenue Reports'),
 
             // Notifications & Chat
             AppRoutes.history: (context) => const HistoryScreen(),
-            AppRoutes.notifications: (context) => const PlaceholderScreen(title: 'Notifications'),
+            AppRoutes.notifications: (context) =>
+                const PlaceholderScreen(title: 'Notifications'),
             AppRoutes.messages: (context) => const MessagesScreen(),
             AppRoutes.chat: (context) => const ChatScreen(),
           },

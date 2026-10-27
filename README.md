@@ -55,3 +55,43 @@ The script also secures the `active_job_balance` and `active_job_balances`,
 only to authenticated users, subject to the underlying tables' RLS policies.
 Supabase Storage access is configured separately and is not changed by this
 script.
+
+## Spare-parts marketplace
+
+The Source a Part form publishes mechanic requests and photos to the in-app
+marketplace. Registered sellers sign in at `/spareparts`, view open requests,
+and submit an offer with price, condition, and location. Mechanics can compare
+the offers under My Part Requests, chat with each responding seller, and accept
+one. Seller/mechanic chat updates live. Request images are stored in a private
+Supabase Storage bucket and served through short-lived signed URLs.
+The seller portal is available at
+<https://mecho-os.onrender.com/spareparts>.
+
+Before deploying this feature, run
+[`supabase/spare_parts_marketplace.sql`](./supabase/spare_parts_marketplace.sql)
+in the Supabase SQL Editor as an administrator. This configures the marketplace
+tables, their row-level security policies, and the private image bucket. Render
+does not run SQL scripts automatically.
+
+Spare-part seller accounts are admin-provisioned; public seller signup is not
+available. Create or invite the seller's Auth account through Supabase, then
+use a trusted administrator session to give its profile the seller role and
+active status. For example, after replacing the values with the invited
+account's details:
+
+```sql
+INSERT INTO public.users (id, full_name, email, phone_number, role, status)
+SELECT id, 'Seller Name', email, '08000000000', 'spare_part_seller', 'active'
+FROM auth.users
+WHERE email = 'seller@example.com'
+ON CONFLICT (id) DO UPDATE
+SET full_name = EXCLUDED.full_name,
+    email = EXCLUDED.email,
+    phone_number = EXCLUDED.phone_number,
+    role = EXCLUDED.role,
+    status = EXCLUDED.status;
+```
+
+Run account provisioning only from the Supabase Dashboard or another trusted
+server-side admin process. Never put a Supabase service-role key in the Flutter
+app.

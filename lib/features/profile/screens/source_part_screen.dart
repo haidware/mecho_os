@@ -2,10 +2,10 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_routes.dart';
+import '../../../repositories/spare_parts_repository.dart';
 
 enum _ImageSelection { camera, gallery }
 
@@ -17,7 +17,6 @@ class SourcePartScreen extends StatefulWidget {
 }
 
 class _SourcePartScreenState extends State<SourcePartScreen> {
-  static const _supportWhatsAppNumber = '2348127499576';
   static const _positions = [
     'Front Left',
     'Front Right',
@@ -35,6 +34,7 @@ class _SourcePartScreenState extends State<SourcePartScreen> {
   final _phoneController = TextEditingController();
   final _locationController = TextEditingController();
   final _imagePicker = ImagePicker();
+  final _repository = SparePartsRepository();
   final List<XFile> _images = [];
 
   String? _selectedPosition;
@@ -117,56 +117,30 @@ class _SourcePartScreenState extends State<SourcePartScreen> {
     }
 
     setState(() => _isSending = true);
-    final message = [
-      '*MECHO OS - SOURCE A PART REQUEST*',
-      '',
-      '*Part:* ${_partNameController.text.trim()}',
-      '*Condition:* $_selectedCondition',
-      '*Barcode / part number:* ${_optionalValue(_barcodeController.text)}',
-      '*Vehicle:* ${_optionalValue(_vehicleController.text)}',
-      '*Position:* ${_selectedPosition ?? 'Not specified'}',
-      '*Description:* ${_optionalValue(_descriptionController.text)}',
-      '*Name / garage:* ${_garageController.text.trim()}',
-      '*Contact:* ${_phoneController.text.trim()}',
-      '*Location:* ${_locationController.text.trim()}',
-      '*Images attached:* ${_images.length}',
-    ].join('\n');
-
-    final uri = Uri.https('wa.me', '/$_supportWhatsAppNumber', {
-      'text': message,
-    });
-
     try {
-      if (_images.isNotEmpty) {
-        await Share.shareXFiles(
-          _images,
-          subject: 'Mecho OS - Source a Part Request',
-          text: message,
-        );
-      } else {
-        final launched = await launchUrl(
-          uri,
-          mode: LaunchMode.externalApplication,
-        );
-        if (!launched && mounted) {
-          _showMessage(
-            'WhatsApp could not be opened. Please try again or contact support.',
-            isError: true,
-          );
-        }
+      await _repository.createRequest(
+        partName: _partNameController.text.trim(),
+        condition: _selectedCondition!,
+        barcode: _barcodeController.text.trim(),
+        vehicle: _vehicleController.text.trim(),
+        position: _selectedPosition ?? '',
+        description: _descriptionController.text.trim(),
+        mechanicName: _garageController.text.trim(),
+        phoneNumber: _phoneController.text.trim(),
+        location: _locationController.text.trim(),
+        images: _images,
+      );
+      if (mounted) {
+        _showMessage('Request sent to registered spare-part sellers.');
+        Navigator.pushNamed(context, AppRoutes.myPartRequests);
       }
     } catch (error) {
       if (mounted) {
-        _showMessage('Could not share the request: $error', isError: true);
+        _showMessage('Could not send the part request: $error', isError: true);
       }
     } finally {
       if (mounted) setState(() => _isSending = false);
     }
-  }
-
-  String _optionalValue(String value) {
-    final trimmed = value.trim();
-    return trimmed.isEmpty ? 'Not provided' : trimmed;
   }
 
   void _showMessage(String message, {bool isError = false}) {
@@ -198,6 +172,14 @@ class _SourcePartScreenState extends State<SourcePartScreen> {
           ),
         ),
         centerTitle: true,
+        actions: [
+          IconButton(
+            tooltip: 'My part requests',
+            onPressed: () =>
+                Navigator.pushNamed(context, AppRoutes.myPartRequests),
+            icon: const Icon(Icons.receipt_long_outlined, color: Colors.black),
+          ),
+        ],
       ),
       body: Form(
         key: _formKey,
@@ -430,7 +412,7 @@ class _SourcePartScreenState extends State<SourcePartScreen> {
                   SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Your request details and selected images will be included together in the share sheet. Choose WhatsApp to send them in one message.',
+                      'Your request and selected photos will be shared securely with registered spare-part sellers. Compare their offers here and choose the one that works for you.',
                       style: TextStyle(
                         color: AppColors.grey600,
                         fontSize: 12,
@@ -455,11 +437,11 @@ class _SourcePartScreenState extends State<SourcePartScreen> {
                           strokeWidth: 2,
                         ),
                       )
-                    : const Icon(Icons.open_in_new, size: 18),
+                    : const Icon(Icons.send_outlined, size: 18),
                 label: Text(
                   _isSending
-                      ? 'Opening WhatsApp...'
-                      : 'Send request via WhatsApp',
+                      ? 'Sending request...'
+                      : 'Send to spare-part sellers',
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,

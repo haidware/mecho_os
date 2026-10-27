@@ -22,8 +22,37 @@ class AuthService {
     required String email,
     required String password,
   }) async {
+    return _loginForRoles(
+      email: email,
+      password: password,
+      allowedRoles: const {'workshop_owner', 'staff'},
+      accessDeniedMessage:
+          'Access denied. Only workshop accounts can log in here.',
+    );
+  }
+
+  Future<LoginResult> loginSparePartSeller({
+    required String email,
+    required String password,
+  }) async {
+    return _loginForRoles(
+      email: email,
+      password: password,
+      allowedRoles: const {'spare_part_seller'},
+      accessDeniedMessage:
+          'This login is for registered spare-part sellers only.',
+    );
+  }
+
+  Future<LoginResult> _loginForRoles({
+    required String email,
+    required String password,
+    required Set<String> allowedRoles,
+    required String accessDeniedMessage,
+  }) async {
     try {
-      final response = await _repository.loginWithEmailAndPassword(email, password);
+      final response =
+          await _repository.loginWithEmailAndPassword(email, password);
       final userData = await _repository.getUserDocument(response.user!.id);
 
       if (userData == null) {
@@ -37,19 +66,21 @@ class AuthService {
 
       if (userData['status'] != 'active') {
         await _repository.logout();
-        return LoginResult(success: false, message: 'Your account is currently inactive.');
+        return LoginResult(
+            success: false, message: 'Your account is currently inactive.');
       }
 
       final role = userData['role'];
-      if (role != 'workshop_owner' && role != 'staff') {
+      if (role is! String || !allowedRoles.contains(role)) {
         await _repository.logout();
-        return LoginResult(success: false, message: 'Access denied. Only workshop accounts can log in here.');
+        return LoginResult(success: false, message: accessDeniedMessage);
       }
 
       return LoginResult(success: true, userData: userData);
     } on AuthException catch (e) {
       if (e.message.contains('Invalid login credentials')) {
-        return LoginResult(success: false, message: 'Incorrect password. Please try again.');
+        return LoginResult(
+            success: false, message: 'Incorrect password. Please try again.');
       }
       return LoginResult(success: false, message: e.message);
     } catch (e) {
@@ -66,25 +97,30 @@ class AuthService {
     required String garageAddress,
     required String workshopType,
   }) async {
-    final response = await _repository.registerWithEmailAndPassword(email, password);
+    final response =
+        await _repository.registerWithEmailAndPassword(email, password);
     String uid = response.user!.id;
 
     final trialStart = DateTime.now();
     final trialEnd = trialStart.add(const Duration(days: 30));
 
     // Create a workshop first to get its ID
-    final workshopResponse = await Supabase.instance.client.from('workshops').insert({
-      'owner_id': uid,
-      'owner_name': ownerName,
-      'garage_name': garageName,
-      'phone_number': phoneNumber,
-      'email': email,
-      'garage_address': garageAddress,
-      'workshop_type': workshopType,
-      'subscription_status': 'trial',
-      'trial_start_date': trialStart.toIso8601String(),
-      'trial_end_date': trialEnd.toIso8601String(),
-    }).select().single();
+    final workshopResponse = await Supabase.instance.client
+        .from('workshops')
+        .insert({
+          'owner_id': uid,
+          'owner_name': ownerName,
+          'garage_name': garageName,
+          'phone_number': phoneNumber,
+          'email': email,
+          'garage_address': garageAddress,
+          'workshop_type': workshopType,
+          'subscription_status': 'trial',
+          'trial_start_date': trialStart.toIso8601String(),
+          'trial_end_date': trialEnd.toIso8601String(),
+        })
+        .select()
+        .single();
 
     final workshopId = workshopResponse['id'];
 
