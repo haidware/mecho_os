@@ -15,3 +15,22 @@ A few resources to get you started if this is your first Flutter project:
 For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
+
+## Build for the web
+
+Build the production web app with:
+
+```sh
+flutter build web --release
+```
+
+The static site is generated in `build/web`.
+
+## Deploy to Render
+
+Render can use the Blueprint in `render.yaml` to build and publish the Flutter
+web app as a static site. In Render, create a new Blueprint from this repository
+and select the `mecho-os-web` static site. The Blueprint pins Flutter 3.35.1 and
+rewrites app routes to `index.html` so Flutter navigation works on refresh.
+
+The existing Supabase initialization and app flow are unchanged.
