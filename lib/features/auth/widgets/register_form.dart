@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_routes.dart';
 import '../../../services/auth_service.dart';
@@ -47,25 +48,24 @@ class _RegisterFormState extends State<RegisterForm> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Account created successfully. Please login.'),
-              backgroundColor: Colors.green
-          ),
+        _returnToLogin(
+          message: 'Account created successfully. Please login.',
+          backgroundColor: Colors.green,
         );
-        // Requirement: Navigate back to Login page with pre-filled credentials
-        Navigator.pushReplacementNamed(
-          context, 
-          AppRoutes.login, 
-          arguments: {
-            'email': _emailController.text.trim(),
-            'password': _passwordController.text,
-          },
+      }
+    } on AuthException catch (e) {
+      if (mounted &&
+          (e.code == 'user_already_exists' || e.code == 'email_exists')) {
+        _returnToLogin(
+          message:
+              'This email is already registered. Check the filled credentials and log in.',
+          backgroundColor: Colors.orange,
         );
+      } else if (mounted) {
+        _showError(e.message);
       }
     } catch (e) {
       if (mounted) {
-        // CLEAN ERROR HANDLING
         String message = e.toString();
         if (message.contains('email-already-in-use')) {
           message = 'This email is already registered. Please login instead.';
@@ -79,13 +79,35 @@ class _RegisterFormState extends State<RegisterForm> {
           message = message.replaceAll('Exception:', '').trim();
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message), backgroundColor: Colors.red),
-        );
+        _showError(message);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _returnToLogin({
+    required String message,
+    required Color backgroundColor,
+  }) {
+    final messenger = ScaffoldMessenger.of(context);
+    Navigator.pushReplacementNamed(
+      context,
+      AppRoutes.login,
+      arguments: {
+        'email': _emailController.text.trim(),
+        'password': _passwordController.text,
+      },
+    );
+    messenger.showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: backgroundColor),
+    );
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
   }
 
   @override
@@ -180,8 +202,12 @@ class _RegisterFormState extends State<RegisterForm> {
       obscureText: isPassword && _obscurePassword,
       readOnly: isDropdown,
       validator: (v) {
-        if ((v == null || v.isEmpty) && !isDropdown) return 'Required';
-        if (isPassword && v!.length < 6) return 'Password must be at least 6 characters';
+        if ((v == null || v.isEmpty) && !isDropdown) {
+          return 'Required';
+        }
+        if (isPassword && v!.length < 6) {
+          return 'Password must be at least 6 characters';
+        }
         return null;
       },
       decoration: InputDecoration(
