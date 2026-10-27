@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/app_routes.dart';
-import '../../../core/constants/app_colors.dart';
 import '../../../shared/widgets/bottom_nav.dart';
 import '../../../repositories/workshop_repository.dart';
 
@@ -72,18 +71,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _buildUserHeader(),
               const SizedBox(height: 20),
 
-              // Find a Mech Request Banner
-              _buildFindMechBanner(),
-              const SizedBox(height: 24),
-
               // OPERATIONS
               _buildSectionTitle('OPERATIONS'),
-              _buildProfileItem(
-                icon: Icons.search,
-                title: 'Find a Mech Requests',
-                trailing: _buildCountBadge('2 New'),
-                onTap: () => Navigator.pushNamed(context, AppRoutes.findMech),
-              ),
               _buildProfileItem(
                 icon: Icons.people_outline,
                 title: 'Customer Records',
@@ -98,11 +87,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 24),
               // FINANCE
               _buildSectionTitle('FINANCE'),
-              _buildProfileItem(
-                icon: Icons.account_balance_wallet_outlined,
-                title: 'Payout & Earnings',
-                onTap: () => Navigator.pushNamed(context, AppRoutes.revenueSummary),
-              ),
               _buildProfileItem(
                 icon: Icons.account_balance_outlined,
                 title: 'Bank Details',
@@ -189,46 +173,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildFindMechBanner() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1D1DFF),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          const CircleAvatar(
-            backgroundColor: Colors.white24,
-            child: Icon(Icons.people, color: Colors.white),
-          ),
-          const SizedBox(width: 16),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('2 Find a Mech Requests',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                Text('Real customer requests are available near your workshop location.',
-                    style: TextStyle(color: Colors.white70, fontSize: 11)),
-              ],
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pushNamed(context, AppRoutes.findMech),
-            style: TextButton.styleFrom(
-              backgroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            child: const Text('View Requests',
-                style: TextStyle(color: Color(0xFF1D1DFF), fontSize: 11, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.only(left: 4, bottom: 12),
@@ -254,14 +198,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       title: Text(title,
           style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: titleColor ?? Colors.black87)),
       trailing: trailing ?? (showTrailing ? const Icon(Icons.chevron_right, size: 20, color: Colors.grey) : null),
-    );
-  }
-
-  Widget _buildCountBadge(String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(12)),
-      child: Text(text, style: const TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold)),
     );
   }
 

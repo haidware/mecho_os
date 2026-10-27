@@ -60,7 +60,6 @@ class NavigationListScreen extends StatelessWidget {
             _buildItem(context, 'Invoice Preview', AppRoutes.invoicePreview),
             _buildItem(context, 'Receipts', AppRoutes.receipts),
             _buildItem(context, 'Payments History', AppRoutes.payments),
-            _buildItem(context, 'Revenue Summary', AppRoutes.revenueSummary),
           ]),
           _buildModule(context, 'Maintenance', Icons.calendar_month_outlined, [
             _buildItem(context, 'Maintenance Screen', AppRoutes.maintenance),
@@ -68,11 +67,6 @@ class NavigationListScreen extends StatelessWidget {
             _buildItem(context, 'Maintenance Calendar', AppRoutes.maintenanceCalendar),
             _buildItem(context, 'Maintenance Records', AppRoutes.maintenanceRecords),
             _buildItem(context, 'Reminder History', AppRoutes.reminderHistory),
-          ]),
-          _buildModule(context, 'Find A Mech', Icons.search_outlined, [
-            _buildItem(context, 'Search Mechanic', AppRoutes.findMech),
-            _buildItem(context, 'Garage Profile', AppRoutes.garageProfile),
-            _buildItem(context, 'Ratings & Reviews', AppRoutes.ratingsReviews),
           ]),
           _buildModule(context, 'Subscriptions', Icons.card_membership_outlined, [
             _buildItem(context, 'Subscription Screen', AppRoutes.subscription),

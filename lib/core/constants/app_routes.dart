@@ -43,7 +43,6 @@ class AppRoutes {
   static const String invoicePreview = '/invoice-preview';
   static const String receipts = '/receipts';
   static const String payments = '/payments';
-  static const String revenueSummary = '/revenue-summary';
 
   // Maintenance
   static const String maintenance = '/maintenance';
@@ -51,11 +50,6 @@ class AppRoutes {
   static const String maintenanceCalendar = '/maintenance-calendar';
   static const String maintenanceRecords = '/maintenance-records';
   static const String reminderHistory = '/reminder-history';
-
-  // Find A Mech
-  static const String findMech = '/find-mech';
-  static const String garageProfile = '/garage-profile';
-  static const String ratingsReviews = '/ratings-reviews';
 
   // Subscription
   static const String subscription = '/subscription';

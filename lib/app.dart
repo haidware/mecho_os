@@ -37,9 +37,7 @@ import 'features/profile/screens/profile_screen.dart';
 import 'features/profile/screens/bank_details_screen.dart';
 import 'features/profile/screens/subscription_screen.dart';
 import 'features/profile/screens/workshop_profile_screen.dart';
-import 'features/profile/screens/payout_earnings_screen.dart';
 import 'features/profile/screens/help_support_screen.dart';
-import 'features/find_mech/screens/find_mech_requests_screen.dart';
 import 'features/reports/screens/reports_screen.dart';
 import 'features/profile/screens/settings_screen.dart';
 import 'features/community/screens/community_screen.dart';
@@ -167,7 +165,6 @@ class _MechoAppState extends State<MechoApp> {
             AppRoutes.invoicePreview: (context) => const InvoicePreviewScreen(),
             AppRoutes.receipts: (context) => const ReceiptPreviewScreen(),
             AppRoutes.payments: (context) => const RecordPaymentScreen(),
-            AppRoutes.revenueSummary: (context) => const PayoutEarningsScreen(),
 
             // Customers Module
             AppRoutes.customers: (context) => const CustomersScreen(),
@@ -181,11 +178,6 @@ class _MechoAppState extends State<MechoApp> {
             AppRoutes.maintenanceCalendar: (context) => const PlaceholderScreen(title: 'Maintenance Calendar'),
             AppRoutes.maintenanceRecords: (context) => const PlaceholderScreen(title: 'Maintenance Records'),
             AppRoutes.reminderHistory: (context) => const PlaceholderScreen(title: 'Reminder History'),
-
-            // Find A Mech Module
-            AppRoutes.findMech: (context) => const FindMechRequestsScreen(),
-            AppRoutes.garageProfile: (context) => const PlaceholderScreen(title: 'Garage Profile'),
-            AppRoutes.ratingsReviews: (context) => const PlaceholderScreen(title: 'Ratings & Reviews'),
 
             // Subscriptions Module
             AppRoutes.subscription: (context) => const SubscriptionScreen(),
