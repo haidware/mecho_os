@@ -174,6 +174,36 @@ AS $function$
   )
 $function$;
 
+CREATE OR REPLACE FUNCTION public.can_create_spare_part_request(
+  p_workshop_id uuid,
+  p_mechanic_user_id uuid
+)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+  SELECT auth.uid() IS NOT NULL
+    AND p_mechanic_user_id::text = auth.uid()::text
+    AND EXISTS (
+      SELECT 1
+      FROM public.users AS u
+      WHERE u.id::text = auth.uid()::text
+        AND u.role IN ('workshop_owner', 'staff')
+        AND u.status = 'active'
+        AND (
+          u.workshop_id::text = p_workshop_id::text
+          OR EXISTS (
+            SELECT 1
+            FROM public.workshops AS w
+            WHERE w.id::text = p_workshop_id::text
+              AND w.owner_id::text = auth.uid()::text
+          )
+        )
+    )
+$function$;
+
 CREATE OR REPLACE FUNCTION public.can_upload_spare_part_request_image(p_name text)
 RETURNS boolean
 LANGUAGE sql
@@ -237,12 +267,15 @@ $function$;
 REVOKE ALL ON FUNCTION public.is_active_spare_part_seller() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.can_access_spare_part_chat(uuid, uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.can_view_spare_part_request(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.can_create_spare_part_request(uuid, uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.can_upload_spare_part_request_image(text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.can_access_spare_part_request_image(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.is_active_spare_part_seller() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.can_access_spare_part_chat(uuid, uuid)
   TO authenticated;
 GRANT EXECUTE ON FUNCTION public.can_view_spare_part_request(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.can_create_spare_part_request(uuid, uuid)
+  TO authenticated;
 GRANT EXECUTE ON FUNCTION public.can_upload_spare_part_request_image(text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.can_access_spare_part_request_image(text) TO authenticated;
 
@@ -257,18 +290,9 @@ CREATE POLICY spare_part_requests_insert
   ON public.spare_part_requests
   FOR INSERT TO authenticated
   WITH CHECK (
-    mechanic_user_id::text = auth.uid()::text
+    public.can_create_spare_part_request(workshop_id, mechanic_user_id)
     AND status = 'draft'
     AND selected_offer_id IS NULL
-    AND EXISTS (
-      SELECT 1
-      FROM public.users AS u
-      WHERE u.id::text = auth.uid()::text
-        AND u.workshop_id::text =
-          public.spare_part_requests.workshop_id::text
-        AND u.role IN ('workshop_owner', 'staff')
-        AND u.status = 'active'
-    )
   );
 
 DROP POLICY IF EXISTS spare_part_requests_update_draft ON public.spare_part_requests;
@@ -280,18 +304,9 @@ CREATE POLICY spare_part_requests_update_draft
     AND status = 'draft'
   )
   WITH CHECK (
-    mechanic_user_id::text = auth.uid()::text
+    public.can_create_spare_part_request(workshop_id, mechanic_user_id)
     AND status IN ('draft', 'open')
     AND selected_offer_id IS NULL
-    AND EXISTS (
-      SELECT 1
-      FROM public.users AS u
-      WHERE u.id::text = auth.uid()::text
-        AND u.workshop_id::text =
-          public.spare_part_requests.workshop_id::text
-        AND u.role IN ('workshop_owner', 'staff')
-        AND u.status = 'active'
-    )
   );
 
 DROP POLICY IF EXISTS spare_part_requests_delete_draft ON public.spare_part_requests;

@@ -54,6 +54,13 @@ class LoginScreen extends StatelessWidget {
                 ),
                 if (isSparePartSeller) ...[
                   const SizedBox(height: 16),
+                  OutlinedButton(
+                    onPressed: () => Navigator.pushNamed(
+                      context,
+                      AppRoutes.sparePartsSellerSignup,
+                    ),
+                    child: const Text('Create seller account with an ID'),
+                  ),
                   TextButton(
                     onPressed: () => Navigator.pushReplacementNamed(
                       context,

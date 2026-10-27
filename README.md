@@ -72,26 +72,33 @@ Before deploying this feature, run
 in the Supabase SQL Editor as an administrator. This configures the marketplace
 tables, their row-level security policies, and the private image bucket. Render
 does not run SQL scripts automatically.
+If an existing deployment reports SQLSTATE `42501` when publishing a request,
+run [`supabase/fix_spare_parts_request_insert_rls.sql`](./supabase/fix_spare_parts_request_insert_rls.sql)
+in the Supabase SQL Editor, then retry. It repairs request insert/update
+authorization without deleting marketplace data.
 
-Spare-part seller accounts are admin-provisioned; public seller signup is not
-available. Create or invite the seller's Auth account through Supabase, then
-use a trusted administrator session to give its profile the seller role and
-active status. For example, after replacing the values with the invited
-account's details:
+Spare-part seller sign-up requires a one-time numeric ID issued by an admin at
+<https://mecho-os.onrender.com/admin>. Sellers create their account at
+`/spareparts/signup` with that ID; on success, the app opens seller login with
+their email and password filled in.
 
-```sql
-INSERT INTO public.users (id, full_name, email, phone_number, role, status)
-SELECT id, 'Seller Name', email, '08000000000', 'spare_part_seller', 'active'
-FROM auth.users
-WHERE email = 'seller@example.com'
-ON CONFLICT (id) DO UPDATE
-SET full_name = EXCLUDED.full_name,
-    email = EXCLUDED.email,
-    phone_number = EXCLUDED.phone_number,
-    role = EXCLUDED.role,
-    status = EXCLUDED.status;
-```
+Run [`supabase/spare_parts_seller_signup.sql`](./supabase/spare_parts_seller_signup.sql)
+in the Supabase SQL Editor as an administrator after the marketplace SQL. This
+creates a private one-time-ID table and RPC functions. The Render Blueprint
+also adds the `mecho-os-seller-admin-api` Node service. Set these environment
+variables on that service in Render:
 
-Run account provisioning only from the Supabase Dashboard or another trusted
-server-side admin process. Never put a Supabase service-role key in the Flutter
-app.
+- `ADMIN_USERNAME` and `ADMIN_PASSWORD`: the single admin login for `/admin`.
+- `ADMIN_TOKEN_SECRET`: a randomly generated secret used to sign short-lived
+  admin sessions.
+- `SELLER_ID_HASH_SECRET`: a separate randomly generated secret used to hash
+  issued IDs; keep it stable so existing unused IDs remain valid.
+- `SUPABASE_SERVICE_ROLE_KEY`: the Supabase project service-role key. Keep it
+  only in the backend service's Render environment; never put it in Flutter or
+  the static-site build variables.
+
+The Blueprint sets the API origin and the public app origin. Admin credentials
+are checked only by the backend, and seller IDs are stored as hashes and can be
+redeemed once. Keep both generated secrets at least 32 characters long. Render
+may require these secret environment variables to be entered before the
+backend service becomes healthy.

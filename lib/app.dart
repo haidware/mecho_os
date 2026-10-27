@@ -8,6 +8,7 @@ import 'shared/placeholder_screen.dart';
 import 'shared/widgets/add_to_home_screen_dialog.dart';
 import 'features/navigation/screens/navigation_list_screen.dart';
 import 'features/auth/screens/login_screen.dart';
+import 'features/auth/screens/seller_account_screens.dart';
 import 'features/auth/screens/register_screen.dart';
 import 'features/home/screens/home_screen.dart';
 import 'features/customers/screens/customers_screen.dart';
@@ -128,8 +129,11 @@ class _MechoAppState extends State<MechoApp> {
           routes: {
             AppRoutes.root: (context) => const LoginScreen(),
             AppRoutes.login: (context) => const LoginScreen(),
+            AppRoutes.admin: (context) => const SparePartsAdminScreen(),
             AppRoutes.sparePartsSellerLogin: (context) =>
                 const LoginScreen(isSparePartSeller: true),
+            AppRoutes.sparePartsSellerSignup: (context) =>
+                const SparePartSellerSignupScreen(),
             AppRoutes.sparePartsSeller: (context) =>
                 const SparePartsSellerScreen(),
             AppRoutes.mySellerOffers: (context) => const MySellerOffersScreen(),

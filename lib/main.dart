@@ -27,7 +27,11 @@ void main() async {
 
     // Check for existing session
     final session = Supabase.instance.client.auth.currentSession;
-    if (session != null) {
+    if (session != null &&
+        !{
+          AppRoutes.admin,
+          AppRoutes.sparePartsSellerSignup,
+        }.contains(browserRoute)) {
       final user = await Supabase.instance.client
           .from('users')
           .select('role,status')

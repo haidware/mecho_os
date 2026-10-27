@@ -4,9 +4,32 @@ static_sites:
       git clone --depth 1 --branch 3.35.1 https://github.com/flutter/flutter.git /tmp/flutter
       /tmp/flutter/bin/flutter config --enable-web
       /tmp/flutter/bin/flutter pub get
-      /tmp/flutter/bin/flutter build web --release
+      /tmp/flutter/bin/flutter build web --release --dart-define=SELLER_API_URL=https://mecho-os-seller-admin-api.onrender.com
     publishPath: build/web
     routes:
       - type: rewrite
         source: /*
         destination: /index.html
+services:
+  - type: web
+    name: mecho-os-seller-admin-api
+    runtime: node
+    rootDir: server
+    buildCommand: node --check src/server.js
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ORIGIN
+        value: https://mecho-os.onrender.com
+      - key: SUPABASE_URL
+        value: https://wtjzipfgikgawamlgymr.supabase.co
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ADMIN_TOKEN_SECRET
+        sync: false
+      - key: SELLER_ID_HASH_SECRET
+        sync: false

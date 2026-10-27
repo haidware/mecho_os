@@ -39,10 +39,23 @@ class SparePartsRepository {
     final userId = _userId;
     final profile = await _supabase
         .from('users')
-        .select('workshop_id')
+        .select('workshop_id,role,status')
         .eq('id', userId)
         .maybeSingle();
-    final workshopId = profile?['workshop_id']?.toString();
+    if (profile?['status'] != 'active' ||
+        !{'workshop_owner', 'staff'}.contains(profile?['role'])) {
+      throw StateError('An active workshop account is required to submit a request.');
+    }
+
+    var workshopId = profile?['workshop_id']?.toString();
+    if (workshopId == null || workshopId.isEmpty) {
+      final ownedWorkshop = await _supabase
+          .from('workshops')
+          .select('id')
+          .eq('owner_id', userId)
+          .maybeSingle();
+      workshopId = ownedWorkshop?['id']?.toString();
+    }
     if (workshopId == null || workshopId.isEmpty) {
       throw StateError('No workshop is linked to this account.');
     }
