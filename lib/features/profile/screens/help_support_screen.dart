@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/constants/app_routes.dart';
 import '../../../core/constants/app_colors.dart';
 
 class HelpSupportScreen extends StatelessWidget {
@@ -25,6 +26,12 @@ class HelpSupportScreen extends StatelessWidget {
           children: [
             const Text("We're here to help you", style: TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.w500)),
             const SizedBox(height: 32),
+            _buildSupportItem(
+              icon: Icons.inventory_2_outlined,
+              title: 'Source a Part',
+              subtitle: 'Request help finding a vehicle part',
+              onTap: () => Navigator.pushNamed(context, AppRoutes.sourcePart),
+            ),
             _buildSupportItem(
               icon: Icons.support_agent_outlined,
               title: 'Contact Support',

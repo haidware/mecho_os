@@ -106,7 +106,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _buildProfileItem(
                 icon: Icons.help_outline,
                 title: 'Help & Support',
-                onTap: () => Navigator.pushNamed(context, AppRoutes.chat), // Changed to help logic later
+                onTap: () => Navigator.pushNamed(context, AppRoutes.contactBook),
               ),
               _buildProfileItem(
                 icon: Icons.forum_outlined,

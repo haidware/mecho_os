@@ -62,6 +62,7 @@ class AppRoutes {
   static const String workshopProfile = '/workshop-profile';
   static const String staffManagement = '/staff-management';
   static const String bankDetails = '/bank-details';
+  static const String sourcePart = '/source-part';
   static const String settings = '/settings';
 
   // Notifications & History

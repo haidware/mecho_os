@@ -38,6 +38,7 @@ import 'features/profile/screens/bank_details_screen.dart';
 import 'features/profile/screens/subscription_screen.dart';
 import 'features/profile/screens/workshop_profile_screen.dart';
 import 'features/profile/screens/help_support_screen.dart';
+import 'features/profile/screens/source_part_screen.dart';
 import 'features/reports/screens/reports_screen.dart';
 import 'features/profile/screens/settings_screen.dart';
 import 'features/community/screens/community_screen.dart';
@@ -171,6 +172,7 @@ class _MechoAppState extends State<MechoApp> {
             AppRoutes.customerDetails: (context) => const CustomerDetailsScreen(),
             AppRoutes.addCustomer: (context) => const AddCustomerScreen(),
             AppRoutes.contactBook: (context) => const HelpSupportScreen(),
+            AppRoutes.sourcePart: (context) => const SourcePartScreen(),
 
             // Maintenance Module
             AppRoutes.maintenance: (context) => const MaintenanceScreen(),
