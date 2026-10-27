@@ -99,6 +99,7 @@ variables on that service in Render:
 
 The Blueprint sets the API origin and the public app origin. Admin credentials
 are checked only by the backend, and seller IDs are stored as hashes and can be
-redeemed once. Keep both generated secrets at least 32 characters long. Render
-may require these secret environment variables to be entered before the
-backend service becomes healthy.
+redeemed once. `ADMIN_TOKEN_SECRET` and `SELLER_ID_HASH_SECRET` can have
+different lengths; the service does not enforce a minimum length. Keep them
+private and distinct. Render may require these secret environment variables to
+be entered before the backend service becomes healthy.

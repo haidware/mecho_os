@@ -9,12 +9,6 @@ const adminUsername = requiredEnv('ADMIN_USERNAME');
 const adminPassword = requiredEnv('ADMIN_PASSWORD');
 const tokenSecret = requiredEnv('ADMIN_TOKEN_SECRET');
 const sellerIdHashSecret = requiredEnv('SELLER_ID_HASH_SECRET');
-if (
-  Buffer.byteLength(tokenSecret) < 32 ||
-  Buffer.byteLength(sellerIdHashSecret) < 32
-) {
-  throw new Error('Admin and seller ID secrets must be at least 32 bytes long.');
-}
 const tokenLifetimeSeconds = 60 * 60;
 const allowedOrigin = new URL(appOrigin).origin;
 const loginAttempts = new Map();
