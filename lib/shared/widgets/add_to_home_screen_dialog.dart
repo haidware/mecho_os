@@ -51,7 +51,7 @@ class AddToHomeScreenDialog extends StatelessWidget {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => Navigator.of(context).pop(true),
           child: const Text('Got it'),
         ),
       ],

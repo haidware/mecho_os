@@ -1,11 +1,11 @@
 {
-    "name": "mecho_os",
-    "short_name": "mecho_os",
+    "name": "Mecho OS",
+    "short_name": "Mecho OS",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FFFFFF",
+    "theme_color": "#1D1DFF",
+    "description": "Mecho OS garage operating system.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

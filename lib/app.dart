@@ -70,11 +70,11 @@ class _MechoAppState extends State<MechoApp> {
 
     await WidgetsBinding.instance.endOfFrame;
 
-    const promptShownKey = 'add_to_home_screen_prompt_shown';
+    const promptAcknowledgedKey = 'add_to_home_screen_prompt_acknowledged';
     late final SharedPreferences preferences;
     try {
       preferences = await SharedPreferences.getInstance();
-      if (preferences.getBool(promptShownKey) ?? false) return;
+      if (preferences.getBool(promptAcknowledgedKey) ?? false) return;
     } catch (error, stackTrace) {
       debugPrint('Could not read the home screen prompt preference: $error');
       debugPrintStack(stackTrace: stackTrace);
@@ -84,19 +84,21 @@ class _MechoAppState extends State<MechoApp> {
     final promptContext = _navigatorKey.currentContext;
     if (promptContext == null || !mounted) return;
 
+    if (!mounted || !promptContext.mounted) return;
+
+    final acknowledged = await showDialog<bool>(
+      context: promptContext,
+      builder: (context) => const AddToHomeScreenDialog(),
+    );
+
+    if (acknowledged != true || !mounted) return;
+
     try {
-      await preferences.setBool(promptShownKey, true);
+      await preferences.setBool(promptAcknowledgedKey, true);
     } catch (error, stackTrace) {
       debugPrint('Could not save the home screen prompt preference: $error');
       debugPrintStack(stackTrace: stackTrace);
     }
-
-    if (!mounted || !promptContext.mounted) return;
-
-    await showDialog<void>(
-      context: promptContext,
-      builder: (context) => const AddToHomeScreenDialog(),
-    );
   }
 
   @override
