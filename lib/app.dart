@@ -1,8 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'core/constants/app_routes.dart';
 import 'core/theme/app_theme.dart';
 import 'shared/placeholder_screen.dart';
+import 'shared/widgets/add_to_home_screen_dialog.dart';
 import 'features/navigation/screens/navigation_list_screen.dart';
 import 'features/auth/screens/login_screen.dart';
 import 'features/auth/screens/register_screen.dart';
@@ -43,9 +46,48 @@ import 'features/community/screens/community_screen.dart';
 
 final ValueNotifier<Locale> appLocale = ValueNotifier(const Locale('en'));
 
-class MechoApp extends StatelessWidget {
+class MechoApp extends StatefulWidget {
   final String initialRoute;
   const MechoApp({super.key, required this.initialRoute});
+
+  @override
+  State<MechoApp> createState() => _MechoAppState();
+}
+
+class _MechoAppState extends State<MechoApp> {
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showAddToHomeScreenPrompt();
+    });
+  }
+
+  Future<void> _showAddToHomeScreenPrompt() async {
+    if (!kIsWeb) return;
+
+    final promptContext = _navigatorKey.currentContext;
+    if (promptContext == null) return;
+
+    const promptShownKey = 'add_to_home_screen_prompt_shown';
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      if (preferences.getBool(promptShownKey) ?? false) return;
+      await preferences.setBool(promptShownKey, true);
+    } catch (error, stackTrace) {
+      debugPrint('Could not save the home screen prompt preference: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+
+    if (!mounted || !promptContext.mounted) return;
+
+    await showDialog<void>(
+      context: promptContext,
+      builder: (context) => const AddToHomeScreenDialog(),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,10 +95,11 @@ class MechoApp extends StatelessWidget {
       valueListenable: appLocale,
       builder: (context, locale, child) {
         return MaterialApp(
+          navigatorKey: _navigatorKey,
           debugShowCheckedModeBanner: false,
           title: 'Mecho OS',
           theme: AppTheme.lightTheme,
-          initialRoute: initialRoute,
+          initialRoute: widget.initialRoute,
           locale: locale,
           localizationsDelegates: const [
             GlobalMaterialLocalizations.delegate,
