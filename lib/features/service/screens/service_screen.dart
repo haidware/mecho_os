@@ -709,31 +709,39 @@ class _ServiceScreenState extends State<ServiceScreen> with SingleTickerProvider
           children: [
             Expanded(child: _buildOutlineAction(Icons.share_outlined, 'WhatsApp', onTap: () async {
               if (vehicle == null) return;
-              
-              List<String> proofImagePaths = [];
-              _proofOfWorkImages.forEach((index, files) {
-                for (var file in files) {
-                  proofImagePaths.add(file.path);
+
+              try {
+                List<String> proofImagePaths = [];
+                _proofOfWorkImages.forEach((index, files) {
+                  for (var file in files) {
+                    proofImagePaths.add(file.path);
+                  }
+                });
+
+                final uint8list = await _screenshotController.capture();
+                String? invoicePath;
+                if (uint8list != null) {
+                  final tempDir = await getTemporaryDirectory();
+                  final file = await File('${tempDir.path}/invoice_draft.png').create();
+                  await file.writeAsBytes(uint8list);
+                  invoicePath = file.path;
                 }
-              });
 
-              final uint8list = await _screenshotController.capture();
-              String? invoicePath;
-              if (uint8list != null) {
-                final tempDir = await getTemporaryDirectory();
-                final file = await File('${tempDir.path}/invoice_draft.png').create();
-                await file.writeAsBytes(uint8list);
-                invoicePath = file.path;
+                await WhatsAppHelper.sendInvoice(
+                  customerName: vehicle['customer_name'] ?? 'Customer',
+                  garageName: 'Carbit Garage',
+                  phoneNumber: vehicle['customer_phone'] ?? '',
+                  proofImagePaths: proofImagePaths,
+                  amount: NumberFormat('#,###').format(totalAmount),
+                  invoiceFilePath: invoicePath,
+                );
+              } catch (error) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Sharing failed: $error')),
+                  );
+                }
               }
-
-              await WhatsAppHelper.sendInvoice(
-                customerName: vehicle['customer_name'] ?? 'Customer',
-                garageName: 'Carbit Garage',
-                phoneNumber: vehicle['customer_phone'] ?? '',
-                proofImagePaths: proofImagePaths,
-                amount: NumberFormat('#,###').format(totalAmount),
-                invoiceFilePath: invoicePath,
-              );
             })),
             const SizedBox(width: 8),
             Expanded(child: _buildOutlineAction(Icons.history, 'Payment Record', onTap: () {})),

@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_colors.dart';
@@ -128,7 +129,7 @@ class _SourcePartScreenState extends State<SourcePartScreen> {
       '*Name / garage:* ${_garageController.text.trim()}',
       '*Contact:* ${_phoneController.text.trim()}',
       '*Location:* ${_locationController.text.trim()}',
-      '*Images selected:* ${_images.length} (please attach separately)',
+      '*Images attached:* ${_images.length}',
     ].join('\n');
 
     final uri = Uri.https('wa.me', '/$_supportWhatsAppNumber', {
@@ -136,19 +137,27 @@ class _SourcePartScreenState extends State<SourcePartScreen> {
     });
 
     try {
-      final launched = await launchUrl(
-        uri,
-        mode: LaunchMode.externalApplication,
-      );
-      if (!launched && mounted) {
-        _showMessage(
-          'WhatsApp could not be opened. Please try again or contact support.',
-          isError: true,
+      if (_images.isNotEmpty) {
+        await Share.shareXFiles(
+          _images,
+          subject: 'Mecho OS - Source a Part Request',
+          text: message,
         );
+      } else {
+        final launched = await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
+        if (!launched && mounted) {
+          _showMessage(
+            'WhatsApp could not be opened. Please try again or contact support.',
+            isError: true,
+          );
+        }
       }
     } catch (error) {
       if (mounted) {
-        _showMessage('Could not open WhatsApp: $error', isError: true);
+        _showMessage('Could not share the request: $error', isError: true);
       }
     } finally {
       if (mounted) setState(() => _isSending = false);
@@ -359,7 +368,7 @@ class _SourcePartScreenState extends State<SourcePartScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${_images.length}/5 selected. Attach them in WhatsApp after the request opens.',
+                      '${_images.length}/5 selected. Selected images will be included with your request.',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         color: AppColors.greyText,
@@ -421,7 +430,7 @@ class _SourcePartScreenState extends State<SourcePartScreen> {
                   SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Your request details will open in WhatsApp. Images are not uploaded automatically; attach selected photos in the chat.',
+                      'Your request details and selected images will be included together in the share sheet. Choose WhatsApp to send them in one message.',
                       style: TextStyle(
                         color: AppColors.grey600,
                         fontSize: 12,
