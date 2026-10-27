@@ -68,13 +68,23 @@ class _MechoAppState extends State<MechoApp> {
   Future<void> _showAddToHomeScreenPrompt() async {
     if (!kIsWeb) return;
 
-    final promptContext = _navigatorKey.currentContext;
-    if (promptContext == null) return;
+    await WidgetsBinding.instance.endOfFrame;
 
     const promptShownKey = 'add_to_home_screen_prompt_shown';
+    late final SharedPreferences preferences;
     try {
-      final preferences = await SharedPreferences.getInstance();
+      preferences = await SharedPreferences.getInstance();
       if (preferences.getBool(promptShownKey) ?? false) return;
+    } catch (error, stackTrace) {
+      debugPrint('Could not read the home screen prompt preference: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      return;
+    }
+
+    final promptContext = _navigatorKey.currentContext;
+    if (promptContext == null || !mounted) return;
+
+    try {
       await preferences.setBool(promptShownKey, true);
     } catch (error, stackTrace) {
       debugPrint('Could not save the home screen prompt preference: $error');
