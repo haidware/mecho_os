@@ -109,6 +109,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onTap: () => Navigator.pushNamed(context, AppRoutes.contactBook),
               ),
               _buildProfileItem(
+                icon: Icons.inventory_2_outlined,
+                title: 'Source a Part',
+                onTap: () => Navigator.pushNamed(context, AppRoutes.sourcePart),
+              ),
+              _buildProfileItem(
                 icon: Icons.forum_outlined,
                 title: 'Community',
                 onTap: () => Navigator.pushNamed(context, AppRoutes.community),

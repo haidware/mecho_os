@@ -32,10 +32,12 @@ class _SourcePartScreenState extends State<SourcePartScreen> {
   final _descriptionController = TextEditingController();
   final _garageController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _locationController = TextEditingController();
   final _imagePicker = ImagePicker();
   final List<XFile> _images = [];
 
   String? _selectedPosition;
+  String? _selectedCondition;
   bool _isSending = false;
 
   @override
@@ -46,6 +48,7 @@ class _SourcePartScreenState extends State<SourcePartScreen> {
     _descriptionController.dispose();
     _garageController.dispose();
     _phoneController.dispose();
+    _locationController.dispose();
     super.dispose();
   }
 
@@ -106,18 +109,25 @@ class _SourcePartScreenState extends State<SourcePartScreen> {
 
   Future<void> _sendRequest() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_selectedCondition == null) {
+      _showMessage('Select whether you need a new or used part.',
+          isError: true);
+      return;
+    }
 
     setState(() => _isSending = true);
     final message = [
       '*MECHO OS - SOURCE A PART REQUEST*',
       '',
       '*Part:* ${_partNameController.text.trim()}',
+      '*Condition:* $_selectedCondition',
       '*Barcode / part number:* ${_optionalValue(_barcodeController.text)}',
       '*Vehicle:* ${_optionalValue(_vehicleController.text)}',
       '*Position:* ${_selectedPosition ?? 'Not specified'}',
       '*Description:* ${_optionalValue(_descriptionController.text)}',
       '*Name / garage:* ${_garageController.text.trim()}',
       '*Contact:* ${_phoneController.text.trim()}',
+      '*Location:* ${_locationController.text.trim()}',
       '*Images selected:* ${_images.length} (please attach separately)',
     ].join('\n');
 
@@ -242,7 +252,35 @@ class _SourcePartScreenState extends State<SourcePartScreen> {
               prefixIcon: Icons.directions_car_outlined,
             ),
             const SizedBox(height: 24),
-            _sectionTitle(2, 'Where is the part located?'),
+            _sectionTitle(2, 'Part condition'),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 10,
+              children: ['New', 'Used'].map((condition) {
+                final selected = _selectedCondition == condition;
+                return ChoiceChip(
+                  label: Text(condition),
+                  selected: selected,
+                  onSelected: (_) =>
+                      setState(() => _selectedCondition = condition),
+                  selectedColor: AppColors.primary.withValues(alpha: 0.12),
+                  backgroundColor: Colors.white,
+                  labelStyle: TextStyle(
+                    color: selected ? AppColors.primary : AppColors.grey600,
+                    fontSize: 13,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                  side: BorderSide(
+                    color: selected ? AppColors.primary : AppColors.border,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 24),
+            _sectionTitle(3, 'Where is the part located on the vehicle?'),
             const SizedBox(height: 6),
             const Text(
               'Choose a position if it applies.',
@@ -276,7 +314,7 @@ class _SourcePartScreenState extends State<SourcePartScreen> {
               }).toList(),
             ),
             const SizedBox(height: 24),
-            _sectionTitle(3, 'Describe what you need'),
+            _sectionTitle(4, 'Describe what you need'),
             const SizedBox(height: 12),
             _buildTextField(
               controller: _descriptionController,
@@ -286,7 +324,7 @@ class _SourcePartScreenState extends State<SourcePartScreen> {
               maxLines: 4,
             ),
             const SizedBox(height: 24),
-            _sectionTitle(4, 'Add images'),
+            _sectionTitle(5, 'Add images'),
             const SizedBox(height: 12),
             InkWell(
               onTap: _images.length == 5 ? null : _selectImages,
@@ -343,7 +381,7 @@ class _SourcePartScreenState extends State<SourcePartScreen> {
               ),
             ],
             const SizedBox(height: 24),
-            _sectionTitle(5, 'Your details'),
+            _sectionTitle(6, 'Your details and location'),
             const SizedBox(height: 12),
             _buildTextField(
               controller: _garageController,
@@ -359,6 +397,14 @@ class _SourcePartScreenState extends State<SourcePartScreen> {
               hint: 'e.g. 08012345678',
               prefixIcon: Icons.phone_outlined,
               keyboardType: TextInputType.phone,
+              required: true,
+            ),
+            const SizedBox(height: 12),
+            _buildTextField(
+              controller: _locationController,
+              label: 'Your location / city *',
+              hint: 'e.g. Akure, Ondo State',
+              prefixIcon: Icons.location_on_outlined,
               required: true,
             ),
             const SizedBox(height: 16),
