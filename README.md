@@ -77,7 +77,8 @@ If an existing deployment reports SQLSTATE `42501` when publishing a request,
 run [`supabase/fix_spare_parts_request_insert_rls.sql`](./supabase/fix_spare_parts_request_insert_rls.sql)
 in the Supabase SQL Editor, then retry. It allows active accounts without a
 workshop link to publish, and repairs request, image, and marketplace access
-authorization without deleting marketplace data.
+authorization without deleting marketplace data. Request visibility is checked
+from the row itself so the app can retrieve a newly created draft under RLS.
 
 Spare-part seller sign-up requires a one-time numeric ID issued by an admin at
 <https://mecho-os.onrender.com/admin>. Sellers create their account at

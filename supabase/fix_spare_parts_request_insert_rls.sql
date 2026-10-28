@@ -36,10 +36,61 @@ AS $function$
     )
 $function$;
 
+CREATE OR REPLACE FUNCTION public.can_view_spare_part_request_row(
+  p_mechanic_user_id uuid,
+  p_status text,
+  p_selected_offer_id uuid
+)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+  SELECT (
+      p_mechanic_user_id::text = auth.uid()::text
+      AND EXISTS (
+        SELECT 1
+        FROM public.users AS u
+        WHERE u.id::text = auth.uid()::text
+          AND u.status = 'active'
+      )
+    )
+    OR (
+      public.is_active_spare_part_seller()
+      AND (
+        p_status = 'open'
+        OR EXISTS (
+          SELECT 1
+          FROM public.spare_part_offers AS o
+          WHERE o.id = p_selected_offer_id
+            AND o.seller_user_id::text = auth.uid()::text
+        )
+      )
+    )
+$function$;
+
 REVOKE ALL ON FUNCTION public.can_create_spare_part_request(uuid, uuid)
   FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.can_create_spare_part_request(uuid, uuid)
   TO authenticated;
+REVOKE ALL ON FUNCTION public.can_view_spare_part_request_row(uuid, text, uuid)
+  FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.can_view_spare_part_request_row(uuid, text, uuid)
+  TO authenticated;
+
+DROP POLICY IF EXISTS spare_part_requests_select
+  ON public.spare_part_requests;
+CREATE POLICY spare_part_requests_select
+  ON public.spare_part_requests
+  FOR SELECT TO authenticated
+  USING (
+    public.can_view_spare_part_request_row(
+      mechanic_user_id,
+      status,
+      selected_offer_id
+    )
+  );
 
 DROP POLICY IF EXISTS spare_part_requests_insert
   ON public.spare_part_requests;
@@ -120,28 +171,10 @@ AS $function$
     SELECT 1
     FROM public.spare_part_requests AS r
     WHERE r.id = p_request_id
-      AND (
-        (
-          r.mechanic_user_id::text = auth.uid()::text
-          AND EXISTS (
-            SELECT 1
-            FROM public.users AS u
-            WHERE u.id::text = auth.uid()::text
-              AND u.status = 'active'
-          )
-        )
-        OR (
-          public.is_active_spare_part_seller()
-          AND (
-            r.status = 'open'
-            OR EXISTS (
-              SELECT 1
-              FROM public.spare_part_offers AS o
-              WHERE o.id = r.selected_offer_id
-                AND o.seller_user_id::text = auth.uid()::text
-            )
-          )
-        )
+      AND public.can_view_spare_part_request_row(
+        r.mechanic_user_id,
+        r.status,
+        r.selected_offer_id
       )
   )
 $function$;
