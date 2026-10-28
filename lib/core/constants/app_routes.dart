@@ -8,6 +8,7 @@ class AppRoutes {
   static const String mySellerOffers = '/spareparts/offers';
   static const String myPartRequests = '/source-part/requests';
   static const String partRequestDetail = '/source-part/request';
+  static const String partRequestThread = '/source-part/thread';
   static const String partRequestChat = '/source-part/chat';
   static const String register = '/register';
   static const String home = '/home';

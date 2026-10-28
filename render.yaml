@@ -6,12 +6,15 @@ services:
       git clone --depth 1 --branch 3.35.1 https://github.com/flutter/flutter.git /tmp/flutter
       /tmp/flutter/bin/flutter config --enable-web
       /tmp/flutter/bin/flutter pub get
-      /tmp/flutter/bin/flutter build web --release --dart-define=SELLER_API_URL=https://mecho-os-seller-admin-api.onrender.com
+      /tmp/flutter/bin/flutter build web --release --dart-define=SELLER_API_URL=https://mecho-os-seller-admin-api.onrender.com --dart-define=WEB_PUSH_VAPID_PUBLIC_KEY=$WEB_PUSH_VAPID_PUBLIC_KEY
     staticPublishPath: build/web
     routes:
       - type: rewrite
         source: /*
         destination: /index.html
+    envVars:
+      - key: WEB_PUSH_VAPID_PUBLIC_KEY
+        sync: false
   - type: web
     name: mecho-os-seller-admin-api
     runtime: node
@@ -33,4 +36,10 @@ services:
       - key: ADMIN_TOKEN_SECRET
         sync: false
       - key: SELLER_ID_HASH_SECRET
+        sync: false
+      - key: PUSH_WEBHOOK_SECRET
+        sync: false
+      - key: WEB_PUSH_VAPID_PUBLIC_KEY
+        sync: false
+      - key: WEB_PUSH_VAPID_PRIVATE_KEY
         sync: false

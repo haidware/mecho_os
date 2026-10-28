@@ -61,10 +61,12 @@ script.
 The Source a Part form is available to any active registered account, with or
 without a workshop link. It publishes requests and photos to the in-app
 marketplace. Registered sellers sign in at `/spareparts`, view open requests,
-and submit an offer with price, condition, and location. Mechanics can compare
-the offers under My Part Requests, chat with each responding seller, and accept
-one. Seller/mechanic chat updates live. Request images are stored in a private
-Supabase Storage bucket and served through short-lived signed URLs.
+and respond in the shared request chat. All active sellers can see the public
+conversation and each offer's price, condition, seller name, and location;
+seller phone numbers are not exposed in the public offer feed. Mechanics can
+accept an offer and continue in the existing private seller chat. Shared chat
+and in-app notification updates arrive live. Request images are stored in a
+private Supabase Storage bucket and served through short-lived signed URLs.
 The request automatically includes the mechanic's saved name, phone number,
 and workshop address from Supabase instead of asking for them again.
 The seller portal is available at
@@ -81,6 +83,14 @@ in the Supabase SQL Editor, then retry. It allows active accounts without a
 workshop link to publish, and repairs request, image, and marketplace access
 authorization without deleting marketplace data. Request visibility is checked
 from the row itself so the app can retrieve a newly created draft under RLS.
+
+After the marketplace and seller-signup SQL, run
+[`supabase/shared_spare_part_chat_notifications.sql`](./supabase/shared_spare_part_chat_notifications.sql)
+in the Supabase SQL Editor. It creates the shared request conversation, private
+in-app notifications, and push subscriptions, and configures the required
+Realtime and row-level access policies. It also enables `pg_net` to send push
+delivery requests to the Render API. Supabase SQL migrations must be run
+manually; Render does not apply them.
 
 Spare-part seller sign-up requires a one-time numeric ID issued by an admin at
 <https://mecho-os.onrender.com/admin>. Sellers create their account at
@@ -108,3 +118,32 @@ redeemed once. `ADMIN_TOKEN_SECRET` and `SELLER_ID_HASH_SECRET` can have
 different lengths; the service does not enforce a minimum length. Keep them
 private and distinct. Render may require these secret environment variables to
 be entered before the backend service becomes healthy.
+
+### Spare-parts push notifications
+
+The notifications page supports in-app updates without push configuration.
+Enable browser push by setting the Render `mecho-os-web` environment variable
+`WEB_PUSH_VAPID_PUBLIC_KEY`, and set the same public key plus
+`WEB_PUSH_VAPID_PRIVATE_KEY` on `mecho-os-seller-admin-api`. Generate a VAPID
+key pair from the `server` directory with:
+
+```sh
+npx web-push generate-vapid-keys
+```
+
+Generate a separate random secret for the Supabase-to-Render webhook and set it
+as `PUSH_WEBHOOK_SECRET` on `mecho-os-seller-admin-api`. Store that same value
+in Supabase Vault as `mecho_push_webhook_secret` (do not commit it):
+
+```sh
+node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
+```
+
+```sql
+select vault.create_secret('<same secret as PUSH_WEBHOOK_SECRET>', 'mecho_push_webhook_secret');
+```
+
+The app's static build receives only the VAPID public key. The VAPID private
+key, webhook secret, and Supabase service-role key belong only in protected
+backend/Vault configuration. Users must enable push notifications in the
+app's Notifications page on each browser/device.

@@ -38,6 +38,10 @@ class SparePartsRepository {
         response?['status'] == 'active';
   }
 
+  Future<bool> isCurrentUserSeller() async {
+    return hasActiveSellerAccount();
+  }
+
   Future<SparePartRequesterDetails> getRequesterDetails() async {
     final userId = _userId;
     final profile = await _supabase
@@ -216,7 +220,9 @@ class SparePartsRepository {
   Future<List<Map<String, dynamic>>> getOffers(String requestId) async {
     final response = await _supabase
         .from('spare_part_offers')
-        .select()
+        .select(
+          'id,request_id,seller_user_id,price,condition,location,seller_name,created_at,updated_at',
+        )
         .eq('request_id', requestId)
         .order('price', ascending: true);
     return List<Map<String, dynamic>>.from(response);
@@ -225,7 +231,9 @@ class SparePartsRepository {
   Future<Map<String, dynamic>?> getMyOffer(String requestId) async {
     final response = await _supabase
         .from('spare_part_offers')
-        .select()
+        .select(
+          'id,request_id,seller_user_id,price,condition,location,seller_name,created_at,updated_at',
+        )
         .eq('request_id', requestId)
         .eq('seller_user_id', _userId)
         .maybeSingle();
@@ -250,6 +258,26 @@ class SparePartsRepository {
         .eq('seller_user_id', _userId)
         .order('created_at', ascending: false);
     return List<Map<String, dynamic>>.from(response);
+  }
+
+  Stream<List<Map<String, dynamic>>> streamRequestMessages(String requestId) {
+    return _supabase
+        .from('spare_part_request_messages')
+        .stream(primaryKey: ['id'])
+        .eq('request_id', requestId)
+        .order('created_at')
+        .map((messages) => List<Map<String, dynamic>>.from(messages));
+  }
+
+  Future<void> sendRequestMessage({
+    required String requestId,
+    required String message,
+  }) async {
+    await _supabase.from('spare_part_request_messages').insert({
+      'request_id': requestId,
+      'sender_user_id': _userId,
+      'message': message,
+    });
   }
 
   Future<void> submitOffer({
@@ -314,6 +342,74 @@ class SparePartsRepository {
       'sender_user_id': _userId,
       'message': message,
     });
+  }
+
+  Stream<List<Map<String, dynamic>>> streamUnreadNotifications() {
+    return _supabase
+        .from('spare_part_notifications')
+        .stream(primaryKey: ['id'])
+        .eq('user_id', _userId)
+        .map(
+          (notifications) => List<Map<String, dynamic>>.from(
+            notifications.where(
+              (notification) => notification['read_at'] == null,
+            ),
+          ),
+        );
+  }
+
+  Future<List<Map<String, dynamic>>> getNotifications() async {
+    final response = await _supabase
+        .from('spare_part_notifications')
+        .select(
+          'id,request_id,seller_user_id,notification_type,title,body,created_at,read_at',
+        )
+        .eq('user_id', _userId)
+        .order('created_at', ascending: false)
+        .limit(100);
+    return List<Map<String, dynamic>>.from(response);
+  }
+
+  Future<void> markNotificationRead(String notificationId) async {
+    await _supabase
+        .from('spare_part_notifications')
+        .update({'read_at': DateTime.now().toUtc().toIso8601String()})
+        .eq('id', notificationId)
+        .eq('user_id', _userId);
+  }
+
+  Future<void> markAllNotificationsRead() async {
+    await _supabase
+        .from('spare_part_notifications')
+        .update({'read_at': DateTime.now().toUtc().toIso8601String()})
+        .eq('user_id', _userId)
+        .isFilter('read_at', null);
+  }
+
+  Future<void> savePushSubscription(Map<String, dynamic> subscription) async {
+    final endpoint = subscription['endpoint']?.toString();
+    final keys = subscription['keys'];
+    if (endpoint == null || endpoint.isEmpty || keys is! Map) {
+      throw const FormatException(
+          'The browser returned an incomplete push subscription.');
+    }
+    final p256dh = keys['p256dh']?.toString();
+    final auth = keys['auth']?.toString();
+    if (p256dh == null || p256dh.isEmpty || auth == null || auth.isEmpty) {
+      throw const FormatException(
+          'The browser returned an incomplete push subscription.');
+    }
+
+    await _supabase.from('spare_part_push_subscriptions').upsert(
+      {
+        'user_id': _userId,
+        'endpoint': endpoint,
+        'p256dh': p256dh,
+        'auth': auth,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      },
+      onConflict: 'endpoint',
+    );
   }
 
   Future<List<String>> getSignedImageUrls(List<dynamic> paths) async {

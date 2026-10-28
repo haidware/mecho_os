@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 import { createHmac, randomInt, timingSafeEqual } from 'node:crypto';
+import webPush from 'web-push';
 
 const port = Number(process.env.PORT ?? 10000);
 const appOrigin = requiredEnv('APP_ORIGIN');
@@ -9,6 +10,9 @@ const adminUsername = requiredEnv('ADMIN_USERNAME');
 const adminPassword = requiredEnv('ADMIN_PASSWORD');
 const tokenSecret = requiredEnv('ADMIN_TOKEN_SECRET');
 const sellerIdHashSecret = requiredEnv('SELLER_ID_HASH_SECRET');
+const pushWebhookSecret = process.env.PUSH_WEBHOOK_SECRET;
+const vapidPublicKey = process.env.WEB_PUSH_VAPID_PUBLIC_KEY;
+const vapidPrivateKey = process.env.WEB_PUSH_VAPID_PRIVATE_KEY;
 const tokenLifetimeSeconds = 60 * 60;
 const allowedOrigin = new URL(appOrigin).origin;
 const loginAttempts = new Map();
@@ -27,7 +31,7 @@ const server = createServer(async (request, response) => {
   response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   response.setHeader(
     'Access-Control-Allow-Headers',
-    'Content-Type, Authorization',
+    'Content-Type, Authorization, X-Mecho-Push-Secret',
   );
   if (request.method === 'OPTIONS') {
     response.writeHead(204);
@@ -47,6 +51,9 @@ const server = createServer(async (request, response) => {
     }
     if (request.method === 'POST' && route === '/seller-signup') {
       return await handleSellerSignup(request, response);
+    }
+    if (request.method === 'POST' && route === '/notifications/push') {
+      return await handlePushNotification(request, response);
     }
     return sendJson(response, 404, { error: 'Not found.' });
   } catch (error) {
@@ -203,6 +210,105 @@ async function handleSellerSignup(request, response) {
     });
   }
   return sendJson(response, 201, { message: 'Seller account created.' });
+}
+
+async function handlePushNotification(request, response) {
+  if (
+    !pushWebhookSecret ||
+    !constantTimeEquals(
+      request.headers['x-mecho-push-secret'],
+      pushWebhookSecret,
+    )
+  ) {
+    return sendJson(response, 401, { error: 'Invalid push webhook credentials.' });
+  }
+  if (!vapidPublicKey || !vapidPrivateKey) {
+    return sendJson(response, 503, { error: 'Web push is not configured.' });
+  }
+
+  const body = await readJson(request);
+  const notificationId = String(body.notificationId ?? '');
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(notificationId)) {
+    return sendJson(response, 400, { error: 'A valid notification ID is required.' });
+  }
+
+  webPush.setVapidDetails(
+    'mailto:admin@mecho-os.onrender.com',
+    vapidPublicKey,
+    vapidPrivateKey,
+  );
+  const notificationQuery = new URLSearchParams({
+    id: `eq.${notificationId}`,
+    select: 'id,user_id,title,body',
+  });
+  const notificationResult = await supabaseRequest(
+    `/rest/v1/spare_part_notifications?${notificationQuery}`,
+    { method: 'GET' },
+  );
+  const notification = notificationResult.data?.[0];
+  if (!notificationResult.ok) {
+    console.error('Could not load push notification:', notificationResult.status);
+    return sendJson(response, 502, { error: 'Could not load the notification.' });
+  }
+  if (!notification) return sendJson(response, 404, { error: 'Notification not found.' });
+
+  const subscriptionsQuery = new URLSearchParams({
+    user_id: `eq.${notification.user_id}`,
+    select: 'endpoint,p256dh,auth',
+    limit: '20',
+  });
+  const subscriptionsResult = await supabaseRequest(
+    `/rest/v1/spare_part_push_subscriptions?${subscriptionsQuery}`,
+    { method: 'GET' },
+  );
+  if (!subscriptionsResult.ok) {
+    console.error('Could not load push subscriptions:', subscriptionsResult.status);
+    return sendJson(response, 502, { error: 'Could not load push subscriptions.' });
+  }
+
+  const payload = JSON.stringify({
+    title: notification.title,
+    body: String(notification.body ?? '').slice(0, 180),
+    url: '/notifications',
+  });
+  const results = await Promise.all(
+    (subscriptionsResult.data ?? []).map(async (subscription) => {
+      try {
+        await webPush.sendNotification(
+          {
+            endpoint: subscription.endpoint,
+            keys: {
+              p256dh: subscription.p256dh,
+              auth: subscription.auth,
+            },
+          },
+          payload,
+          { TTL: 60 * 60 * 24 },
+        );
+        return true;
+      } catch (error) {
+        if (error.statusCode === 404 || error.statusCode === 410) {
+          const expiredQuery = new URLSearchParams({
+            endpoint: `eq.${subscription.endpoint}`,
+          });
+          const deletion = await supabaseRequest(
+            `/rest/v1/spare_part_push_subscriptions?${expiredQuery}`,
+            { method: 'DELETE' },
+          );
+          if (!deletion.ok) {
+            console.error('Could not remove expired push subscription:', deletion.status);
+          }
+          return true;
+        }
+        console.error('Push delivery failed:', error.message);
+        return false;
+      }
+    }),
+  );
+  if (results.some((success) => !success)) {
+    return sendJson(response, 502, { error: 'One or more push notifications failed.' });
+  }
+  return sendJson(response, 200, { delivered: results.length });
 }
 
 async function createSupabaseUser({ email, password }) {

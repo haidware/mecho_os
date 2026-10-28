@@ -72,6 +72,9 @@ before(async () => {
         ADMIN_PASSWORD: adminPassword,
         ADMIN_TOKEN_SECRET: 'short-token-key',
         SELLER_ID_HASH_SECRET: 'different-length-hash-key',
+        PUSH_WEBHOOK_SECRET: 'test-push-webhook-secret',
+        WEB_PUSH_VAPID_PUBLIC_KEY: '',
+        WEB_PUSH_VAPID_PRIVATE_KEY: '',
       },
       stdio: 'ignore',
     },
@@ -177,6 +180,25 @@ test('rejects invalid seller IDs and requests from other web origins', async () 
     body: '{}',
   });
   assert.equal(deniedOrigin.status, 403);
+});
+
+test('push delivery requires the webhook secret and VAPID configuration', async () => {
+  const unauthorized = await fetch(`${apiUrl}/notifications/push`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ notificationId: '00000000-0000-4000-8000-000000000001' }),
+  });
+  assert.equal(unauthorized.status, 401);
+
+  const notConfigured = await fetch(`${apiUrl}/notifications/push`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Mecho-Push-Secret': 'test-push-webhook-secret',
+    },
+    body: JSON.stringify({ notificationId: '00000000-0000-4000-8000-000000000001' }),
+  });
+  assert.equal(notConfigured.status, 503);
 });
 
 async function listenOnAvailablePort(server) {

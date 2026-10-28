@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_routes.dart';
 import '../../../repositories/spare_parts_repository.dart';
+import 'part_request_thread_screen.dart';
 
 class SparePartsSellerScreen extends StatefulWidget {
   const SparePartsSellerScreen({super.key});
@@ -74,8 +75,9 @@ class _SparePartsSellerScreenState extends State<SparePartsSellerScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('Spare Part Requests'),
+        title: const Text('Request Chats'),
         actions: [
+          SparePartNotificationsButton(repository: _repository),
           IconButton(
             tooltip: 'My offers and chats',
             onPressed: () =>
@@ -157,6 +159,7 @@ class _SparePartsSellerScreenState extends State<SparePartsSellerScreen> {
                                         .isNotEmpty)
                                       request['vehicle'].toString(),
                                     'Requested near ${request['location']}',
+                                    'Open shared chat',
                                     '$photoCount photo${photoCount == 1 ? '' : 's'}',
                                   ].join(' • '),
                                 ),
@@ -164,7 +167,7 @@ class _SparePartsSellerScreenState extends State<SparePartsSellerScreen> {
                               trailing: const Icon(Icons.chevron_right),
                               onTap: () => Navigator.pushNamed(
                                 context,
-                                AppRoutes.partRequestDetail,
+                                AppRoutes.partRequestThread,
                                 arguments: {
                                   'requestId': request['id'].toString(),
                                   'sellerMode': true,
@@ -207,6 +210,7 @@ class _MySellerOffersScreenState extends State<MySellerOffersScreen> {
       appBar: AppBar(
         title: const Text('My Offers and Chats'),
         actions: [
+          SparePartNotificationsButton(repository: _repository),
           IconButton(
             tooltip: 'Refresh',
             onPressed: _reload,
@@ -272,11 +276,21 @@ class _MySellerOffersScreenState extends State<MySellerOffersScreen> {
                         ? null
                         : () => Navigator.pushNamed(
                               context,
-                              AppRoutes.partRequestDetail,
-                              arguments: {
-                                'requestId': request['id'].toString(),
-                                'sellerMode': true,
-                              },
+                              selected
+                                  ? AppRoutes.partRequestChat
+                                  : AppRoutes.partRequestThread,
+                              arguments: selected
+                                  ? {
+                                      'requestId': request['id'].toString(),
+                                      'sellerUserId': _repository.currentUserId,
+                                      'sellerName':
+                                          offer['seller_name']?.toString() ??
+                                              'Seller',
+                                    }
+                                  : {
+                                      'requestId': request['id'].toString(),
+                                      'sellerMode': true,
+                                    },
                             ).then((_) => _reload()),
                   ),
                 );
@@ -315,6 +329,7 @@ class _MyPartRequestsScreenState extends State<MyPartRequestsScreen> {
       appBar: AppBar(
         title: const Text('My Part Requests'),
         actions: [
+          SparePartNotificationsButton(repository: _repository),
           IconButton(
             tooltip: 'Refresh',
             onPressed: _reload,
@@ -370,7 +385,7 @@ class _MyPartRequestsScreenState extends State<MyPartRequestsScreen> {
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => Navigator.pushNamed(
                       context,
-                      AppRoutes.partRequestDetail,
+                      AppRoutes.partRequestThread,
                       arguments: {
                         'requestId': request['id'].toString(),
                         'sellerMode': false,

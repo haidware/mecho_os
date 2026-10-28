@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_routes.dart';
 import '../../../repositories/spare_parts_repository.dart';
+import 'part_request_thread_screen.dart';
 
 enum _ImageSelection { camera, gallery }
 
@@ -119,7 +120,7 @@ class _SourcePartScreenState extends State<SourcePartScreen> {
 
     setState(() => _isSending = true);
     try {
-      await _repository.createRequest(
+      final requestId = await _repository.createRequest(
         partName: _partNameController.text.trim(),
         condition: _selectedCondition!,
         barcode: _barcodeController.text.trim(),
@@ -129,8 +130,14 @@ class _SourcePartScreenState extends State<SourcePartScreen> {
         images: _images,
       );
       if (mounted) {
-        _showMessage('Request sent to registered spare-part sellers.');
-        Navigator.pushNamed(context, AppRoutes.myPartRequests);
+        Navigator.pushNamed(
+          context,
+          AppRoutes.partRequestThread,
+          arguments: {
+            'requestId': requestId,
+            'sellerMode': false,
+          },
+        );
       }
     } catch (error) {
       if (mounted) {
@@ -171,6 +178,7 @@ class _SourcePartScreenState extends State<SourcePartScreen> {
         ),
         centerTitle: true,
         actions: [
+          SparePartNotificationsButton(repository: _repository),
           IconButton(
             tooltip: 'My part requests',
             onPressed: () =>
@@ -398,7 +406,9 @@ class _SourcePartScreenState extends State<SourcePartScreen> {
                     children: [
                       _requesterDetail(
                         Icons.person_outline,
-                        details.name.isEmpty ? 'Name not provided' : details.name,
+                        details.name.isEmpty
+                            ? 'Name not provided'
+                            : details.name,
                       ),
                       const SizedBox(height: 8),
                       _requesterDetail(

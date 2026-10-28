@@ -41,6 +41,8 @@ import 'features/profile/screens/workshop_profile_screen.dart';
 import 'features/profile/screens/help_support_screen.dart';
 import 'features/profile/screens/source_part_screen.dart';
 import 'features/profile/screens/spare_parts_marketplace_screen.dart';
+import 'features/profile/screens/part_request_thread_screen.dart';
+import 'features/profile/screens/spare_part_notifications_screen.dart';
 import 'features/profile/screens/part_request_chat_screen.dart';
 import 'features/reports/screens/reports_screen.dart';
 import 'features/profile/screens/settings_screen.dart';
@@ -147,6 +149,19 @@ class _MechoAppState extends State<MechoApp> {
                 );
               }
               return PartRequestDetailScreen(
+                requestId: args['requestId'].toString(),
+                sellerMode: args['sellerMode'] == true,
+              );
+            },
+            AppRoutes.partRequestThread: (context) {
+              final args = ModalRoute.of(context)?.settings.arguments
+                  as Map<String, dynamic>?;
+              if (args == null || args['requestId'] == null) {
+                return const PlaceholderScreen(
+                  title: 'Part request chat unavailable',
+                );
+              }
+              return PartRequestThreadScreen(
                 requestId: args['requestId'].toString(),
                 sellerMode: args['sellerMode'] == true,
               );
@@ -269,7 +284,7 @@ class _MechoAppState extends State<MechoApp> {
             // Notifications & Chat
             AppRoutes.history: (context) => const HistoryScreen(),
             AppRoutes.notifications: (context) =>
-                const PlaceholderScreen(title: 'Notifications'),
+                const SparePartNotificationsScreen(),
             AppRoutes.messages: (context) => const MessagesScreen(),
             AppRoutes.chat: (context) => const ChatScreen(),
           },

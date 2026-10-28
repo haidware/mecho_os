@@ -31,6 +31,9 @@ void main() async {
         !{
           AppRoutes.admin,
           AppRoutes.sparePartsSellerSignup,
+          AppRoutes.notifications,
+          AppRoutes.partRequestThread,
+          AppRoutes.partRequestChat,
         }.contains(browserRoute)) {
       final user = await Supabase.instance.client
           .from('users')
