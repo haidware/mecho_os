@@ -313,6 +313,26 @@ class SparePartsRepository {
     });
   }
 
+  Future<Map<String, dynamic>?> getSelectedSellerContact(
+    String requestId,
+  ) async {
+    final response = await _supabase.rpc(
+      'get_selected_spare_part_seller_contact',
+      params: {'p_request_id': requestId},
+    );
+    if (response is! List) {
+      throw const FormatException(
+        'The selected seller contact response is invalid.',
+      );
+    }
+    if (response.isEmpty) return null;
+    final contact = response.first;
+    if (contact is! Map) {
+      throw const FormatException('The selected seller contact is invalid.');
+    }
+    return Map<String, dynamic>.from(contact);
+  }
+
   Stream<List<Map<String, dynamic>>> streamChatMessages({
     required String requestId,
     required String sellerUserId,

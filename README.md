@@ -63,8 +63,13 @@ without a workshop link. It publishes requests and photos to the in-app
 marketplace. Registered sellers sign in at `/spareparts`, view open requests,
 and respond in the shared request chat. All active sellers can see the public
 conversation and each offer's price, condition, seller name, and location;
-seller phone numbers are not exposed in the public offer feed. Mechanics can
-accept an offer and continue in the existing private seller chat. Shared chat
+seller phone numbers are not exposed in the public offer feed. The shared
+conversation starts with an automatic, detailed request post containing the
+vehicle and part details, saved mechanic contact/location, description, and
+uploaded photos. Mechanics can accept an offer and continue in the existing
+private seller chat. Only the mechanic who owns the request can see the
+accepted seller's phone number and location, with a call action in the offer.
+Shared chat
 and in-app notification updates arrive live. Request images are stored in a
 private Supabase Storage bucket and served through short-lived signed URLs.
 The request automatically includes the mechanic's saved name, phone number,
@@ -91,6 +96,11 @@ in-app notifications, and push subscriptions, and configures the required
 Realtime and row-level access policies. It also enables `pg_net` to send push
 delivery requests to the Render API. Supabase SQL migrations must be run
 manually; Render does not apply them.
+Then run
+[`supabase/selected_spare_part_seller_contact.sql`](./supabase/selected_spare_part_seller_contact.sql)
+to allow the mechanic who accepted an offer to securely retrieve that seller's
+phone number and location. The public seller offer feed does not expose phone
+numbers.
 
 Spare-part seller sign-up requires a one-time numeric ID issued by an admin at
 <https://mecho-os.onrender.com/admin>. Sellers create their account at

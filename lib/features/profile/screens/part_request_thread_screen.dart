@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_routes.dart';
@@ -71,10 +72,13 @@ class _PartRequestThreadScreenState extends State<PartRequestThreadScreen> {
   late final Stream<List<Map<String, dynamic>>> _messages;
 
   Map<String, dynamic>? _request;
+  Map<String, dynamic>? _selectedSellerContact;
+  List<String> _requestImageUrls = [];
   bool _loading = true;
   bool _sending = false;
   bool _savingOffer = false;
   String? _error;
+  String? _contactError;
 
   @override
   void initState() {
@@ -97,6 +101,9 @@ class _PartRequestThreadScreenState extends State<PartRequestThreadScreen> {
   Future<void> _loadRequest() async {
     try {
       final request = await _repository.getRequest(widget.requestId);
+      final imageUrls = await _repository.getSignedImageUrls(
+        request['image_paths'] as List<dynamic>? ?? [],
+      );
       if (widget.sellerMode) {
         final profile = await _repository.getMySellerProfile();
         final offer = await _repository.getMyOffer(widget.requestId);
@@ -108,9 +115,22 @@ class _PartRequestThreadScreenState extends State<PartRequestThreadScreen> {
         _conditionController.text = offer?['condition']?.toString() ?? '';
         _locationController.text = offer?['location']?.toString() ?? '';
       }
+      Map<String, dynamic>? selectedSellerContact;
+      String? contactError;
+      if (!widget.sellerMode && request['status'] == 'accepted') {
+        try {
+          selectedSellerContact =
+              await _repository.getSelectedSellerContact(widget.requestId);
+        } catch (error) {
+          contactError = error.toString();
+        }
+      }
       if (mounted) {
         setState(() {
           _request = request;
+          _selectedSellerContact = selectedSellerContact;
+          _contactError = contactError;
+          _requestImageUrls = imageUrls;
           _loading = false;
         });
       }
@@ -231,9 +251,26 @@ class _PartRequestThreadScreenState extends State<PartRequestThreadScreen> {
         offerId: offerId,
       );
       final request = await _repository.getRequest(widget.requestId);
+      Map<String, dynamic>? sellerContact;
+      String? contactError;
+      try {
+        sellerContact =
+            await _repository.getSelectedSellerContact(widget.requestId);
+      } catch (error) {
+        contactError = error.toString();
+      }
       if (mounted) {
-        setState(() => _request = request);
-        _showMessage('Offer accepted. You can now chat privately.');
+        setState(() {
+          _request = request;
+          _selectedSellerContact = sellerContact;
+          _contactError = contactError;
+        });
+        _showMessage(
+          contactError == null
+              ? 'Offer accepted. You can now call the seller or chat privately.'
+              : 'Offer accepted, but seller contact could not be loaded: $contactError',
+          isError: contactError != null,
+        );
       }
     } catch (error) {
       if (mounted) {
@@ -256,6 +293,22 @@ class _PartRequestThreadScreenState extends State<PartRequestThreadScreen> {
         'sellerName': message['sender_name']?.toString() ?? 'Seller',
       },
     );
+  }
+
+  Future<void> _callSelectedSeller() async {
+    final phoneNumber =
+        _selectedSellerContact?['phone_number']?.toString().trim() ?? '';
+    if (phoneNumber.isEmpty) {
+      _showMessage('This seller has not provided a phone number.',
+          isError: true);
+      return;
+    }
+    final phoneUri = Uri(scheme: 'tel', path: phoneNumber);
+    if (!await canLaunchUrl(phoneUri) ||
+        !await launchUrl(phoneUri, mode: LaunchMode.externalApplication)) {
+      _showMessage('Could not open the phone app to call this seller.',
+          isError: true);
+    }
   }
 
   void _showMessage(String message, {bool isError = false}) {
@@ -311,22 +364,14 @@ class _PartRequestThreadScreenState extends State<PartRequestThreadScreen> {
                             );
                           }
                           final messages = snapshot.data!;
-                          if (messages.isEmpty) {
-                            return const Center(
-                              child: Padding(
-                                padding: EdgeInsets.all(24),
-                                child: Text(
-                                  'The request is posted. Sellers can reply here, and all sellers can see the shared conversation.',
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            );
-                          }
                           return ListView.builder(
                             reverse: true,
                             padding: const EdgeInsets.all(14),
-                            itemCount: messages.length,
+                            itemCount: messages.length + 1,
                             itemBuilder: (context, index) {
+                              if (index == messages.length) {
+                                return _requestPostBubble(_request!);
+                              }
                               final message =
                                   messages[messages.length - 1 - index];
                               return _messageBubble(message);
@@ -367,6 +412,125 @@ class _PartRequestThreadScreenState extends State<PartRequestThreadScreen> {
             style: const TextStyle(color: AppColors.greyText, fontSize: 12),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _requestPostBubble(Map<String, dynamic> request) {
+    final details = <MapEntry<String, String>>[
+      MapEntry('Part', request['part_name']?.toString() ?? 'Not specified'),
+      MapEntry(
+        'Condition',
+        request['condition_requested']?.toString() ?? 'Not specified',
+      ),
+      if ((request['vehicle'] ?? '').toString().trim().isNotEmpty)
+        MapEntry('Vehicle', request['vehicle'].toString()),
+      if ((request['barcode'] ?? '').toString().trim().isNotEmpty)
+        MapEntry('Part number', request['barcode'].toString()),
+      if ((request['position'] ?? '').toString().trim().isNotEmpty)
+        MapEntry('Position', request['position'].toString()),
+      MapEntry(
+        'Requested by',
+        request['mechanic_name']?.toString() ?? 'Mechanic',
+      ),
+      if ((request['phone_number'] ?? '').toString().trim().isNotEmpty)
+        MapEntry('Contact', request['phone_number'].toString()),
+      MapEntry(
+        'Location',
+        request['location']?.toString() ?? 'Location not provided',
+      ),
+    ];
+    final description = request['description']?.toString().trim() ?? '';
+
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Container(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.sizeOf(context).width * 0.88,
+        ),
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFDDF8D6),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.inventory_2_outlined, size: 17),
+                SizedBox(width: 7),
+                Text(
+                  'PART REQUEST',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Please check availability and reply with your price, part condition, and delivery or pickup details.',
+              style: TextStyle(height: 1.35),
+            ),
+            const SizedBox(height: 10),
+            ...details.map(
+              (detail) => Padding(
+                padding: const EdgeInsets.only(bottom: 3),
+                child: Text(
+                  '${detail.key}: ${detail.value}',
+                  style: const TextStyle(height: 1.3),
+                ),
+              ),
+            ),
+            if (description.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              const Text(
+                'Additional details',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 2),
+              Text(description, style: const TextStyle(height: 1.35)),
+            ],
+            if (_requestImageUrls.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(
+                'Photos (${_requestImageUrls.length})',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _requestImageUrls
+                    .map(
+                      (url) => ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          url,
+                          width: 118,
+                          height: 100,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              Container(
+                            width: 118,
+                            height: 100,
+                            color: Colors.white,
+                            alignment: Alignment.center,
+                            child: const Icon(Icons.broken_image_outlined),
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -428,6 +592,41 @@ class _PartRequestThreadScreenState extends State<PartRequestThreadScreen> {
                 '₦${message['offer_price']} • ${message['offer_condition']}',
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
+              if (selectedOffer && !widget.sellerMode) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'Location: ${_selectedSellerContact?['location']?.toString() ?? senderLocation}',
+                  style: const TextStyle(
+                    color: AppColors.greyText,
+                    fontSize: 11,
+                  ),
+                ),
+                if ((_selectedSellerContact?['phone_number']
+                            ?.toString()
+                            .trim() ??
+                        '')
+                    .isNotEmpty)
+                  TextButton.icon(
+                    onPressed: _callSelectedSeller,
+                    icon: const Icon(Icons.call_outlined, size: 16),
+                    label: Text(
+                      _selectedSellerContact!['phone_number'].toString(),
+                    ),
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                if (_contactError != null)
+                  Text(
+                    'Could not load seller contact: $_contactError',
+                    style: const TextStyle(
+                      color: AppColors.error,
+                      fontSize: 11,
+                    ),
+                  ),
+              ],
             ] else
               Text(message['message']?.toString() ?? ''),
             const SizedBox(height: 5),
