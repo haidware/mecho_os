@@ -19,7 +19,6 @@ AS $function$
       SELECT 1
       FROM public.users AS u
       WHERE u.id::text = auth.uid()::text
-        AND u.role IN ('workshop_owner', 'staff', 'mechanic')
         AND u.status = 'active'
         AND (
           u.workshop_id::text = p_workshop_id::text
@@ -95,7 +94,6 @@ AS $function$
             SELECT 1
             FROM public.users AS u
             WHERE u.id::text = auth.uid()::text
-              AND u.role IN ('workshop_owner', 'staff', 'mechanic')
               AND u.status = 'active'
           )
         )
@@ -125,7 +123,6 @@ AS $function$
             SELECT 1
             FROM public.users AS u
             WHERE u.id::text = auth.uid()::text
-              AND u.role IN ('workshop_owner', 'staff', 'mechanic')
               AND u.status = 'active'
           )
         )
@@ -211,10 +208,9 @@ BEGIN
     SELECT 1
     FROM public.users AS u
     WHERE u.id::text = auth.uid()::text
-      AND u.role IN ('workshop_owner', 'staff', 'mechanic')
       AND u.status = 'active'
   ) THEN
-    RAISE EXCEPTION 'Only active mechanic accounts can accept a seller offer';
+    RAISE EXCEPTION 'An active account is required to accept a seller offer';
   END IF;
 
   SELECT *

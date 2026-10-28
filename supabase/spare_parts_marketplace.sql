@@ -124,7 +124,6 @@ AS $function$
             SELECT 1
             FROM public.users AS u
             WHERE u.id::text = auth.uid()::text
-              AND u.role IN ('workshop_owner', 'staff', 'mechanic')
               AND u.status = 'active'
           )
         )
@@ -154,7 +153,6 @@ AS $function$
             SELECT 1
             FROM public.users AS u
             WHERE u.id::text = auth.uid()::text
-              AND u.role IN ('workshop_owner', 'staff', 'mechanic')
               AND u.status = 'active'
           )
         )
@@ -190,7 +188,6 @@ AS $function$
       SELECT 1
       FROM public.users AS u
       WHERE u.id::text = auth.uid()::text
-        AND u.role IN ('workshop_owner', 'staff', 'mechanic')
         AND u.status = 'active'
         AND (
           u.workshop_id::text = p_workshop_id::text
@@ -214,14 +211,10 @@ AS $function$
   SELECT EXISTS (
     SELECT 1
     FROM public.spare_part_requests AS r
-    JOIN public.users AS u
-      ON u.id::text = auth.uid()::text
-     AND u.workshop_id::text = r.workshop_id::text
     WHERE r.mechanic_user_id::text = auth.uid()::text
       AND r.status = 'draft'
       AND p_name LIKE r.workshop_id::text || '/' || r.id::text || '/%'
-      AND u.role IN ('workshop_owner', 'staff', 'mechanic')
-      AND u.status = 'active'
+      AND public.can_create_spare_part_request(r.workshop_id, auth.uid())
   )
 $function$;
 
@@ -244,7 +237,6 @@ AS $function$
             SELECT 1
             FROM public.users AS u
             WHERE u.id::text = auth.uid()::text
-              AND u.role IN ('workshop_owner', 'staff', 'mechanic')
               AND u.status = 'active'
           )
         )
@@ -402,10 +394,9 @@ BEGIN
     SELECT 1
     FROM public.users AS u
     WHERE u.id::text = auth.uid()::text
-      AND u.role IN ('workshop_owner', 'staff', 'mechanic')
       AND u.status = 'active'
   ) THEN
-    RAISE EXCEPTION 'Only active workshop users can accept a seller offer';
+    RAISE EXCEPTION 'An active account is required to accept a seller offer';
   END IF;
 
   SELECT *

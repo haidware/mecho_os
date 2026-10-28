@@ -39,11 +39,10 @@ class SparePartsRepository {
     final userId = _userId;
     final profile = await _supabase
         .from('users')
-        .select('workshop_id,role,status')
+        .select('workshop_id,status')
         .eq('id', userId)
         .maybeSingle();
-    if (profile?['status'] != 'active' ||
-        !{'workshop_owner', 'staff', 'mechanic'}.contains(profile?['role'])) {
+    if (profile?['status'] != 'active') {
       throw StateError(
         'An active mechanic account is required to submit a part request.',
       );
