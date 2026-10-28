@@ -43,8 +43,10 @@ class SparePartsRepository {
         .eq('id', userId)
         .maybeSingle();
     if (profile?['status'] != 'active' ||
-        !{'workshop_owner', 'staff'}.contains(profile?['role'])) {
-      throw StateError('An active workshop account is required to submit a request.');
+        !{'workshop_owner', 'staff', 'mechanic'}.contains(profile?['role'])) {
+      throw StateError(
+        'An active mechanic account is required to submit a part request.',
+      );
     }
 
     var workshopId = profile?['workshop_id']?.toString();

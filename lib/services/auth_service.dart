@@ -25,7 +25,7 @@ class AuthService {
     return _loginForRoles(
       email: email,
       password: password,
-      allowedRoles: const {'workshop_owner', 'staff'},
+      allowedRoles: const {'workshop_owner', 'staff', 'mechanic'},
       accessDeniedMessage:
           'Access denied. Only workshop accounts can log in here.',
     );

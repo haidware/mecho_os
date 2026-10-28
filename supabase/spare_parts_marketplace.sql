@@ -124,7 +124,7 @@ AS $function$
             SELECT 1
             FROM public.users AS u
             WHERE u.id::text = auth.uid()::text
-              AND u.role IN ('workshop_owner', 'staff')
+              AND u.role IN ('workshop_owner', 'staff', 'mechanic')
               AND u.status = 'active'
           )
         )
@@ -154,7 +154,7 @@ AS $function$
             SELECT 1
             FROM public.users AS u
             WHERE u.id::text = auth.uid()::text
-              AND u.role IN ('workshop_owner', 'staff')
+              AND u.role IN ('workshop_owner', 'staff', 'mechanic')
               AND u.status = 'active'
           )
         )
@@ -190,7 +190,7 @@ AS $function$
       SELECT 1
       FROM public.users AS u
       WHERE u.id::text = auth.uid()::text
-        AND u.role IN ('workshop_owner', 'staff')
+        AND u.role IN ('workshop_owner', 'staff', 'mechanic')
         AND u.status = 'active'
         AND (
           u.workshop_id::text = p_workshop_id::text
@@ -220,7 +220,7 @@ AS $function$
     WHERE r.mechanic_user_id::text = auth.uid()::text
       AND r.status = 'draft'
       AND p_name LIKE r.workshop_id::text || '/' || r.id::text || '/%'
-      AND u.role IN ('workshop_owner', 'staff')
+      AND u.role IN ('workshop_owner', 'staff', 'mechanic')
       AND u.status = 'active'
   )
 $function$;
@@ -244,7 +244,7 @@ AS $function$
             SELECT 1
             FROM public.users AS u
             WHERE u.id::text = auth.uid()::text
-              AND u.role IN ('workshop_owner', 'staff')
+              AND u.role IN ('workshop_owner', 'staff', 'mechanic')
               AND u.status = 'active'
           )
         )
@@ -402,7 +402,7 @@ BEGIN
     SELECT 1
     FROM public.users AS u
     WHERE u.id::text = auth.uid()::text
-      AND u.role IN ('workshop_owner', 'staff')
+      AND u.role IN ('workshop_owner', 'staff', 'mechanic')
       AND u.status = 'active'
   ) THEN
     RAISE EXCEPTION 'Only active workshop users can accept a seller offer';

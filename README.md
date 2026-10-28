@@ -58,12 +58,13 @@ script.
 
 ## Spare-parts marketplace
 
-The Source a Part form publishes mechanic requests and photos to the in-app
-marketplace. Registered sellers sign in at `/spareparts`, view open requests,
-and submit an offer with price, condition, and location. Mechanics can compare
-the offers under My Part Requests, chat with each responding seller, and accept
-one. Seller/mechanic chat updates live. Request images are stored in a private
-Supabase Storage bucket and served through short-lived signed URLs.
+The Source a Part form is available to active workshop owners, staff, and
+mechanic accounts linked to a workshop. It publishes requests and photos to
+the in-app marketplace. Registered sellers sign in at `/spareparts`, view open
+requests, and submit an offer with price, condition, and location. Mechanics can
+compare the offers under My Part Requests, chat with each responding seller,
+and accept one. Seller/mechanic chat updates live. Request images are stored in
+a private Supabase Storage bucket and served through short-lived signed URLs.
 The seller portal is available at
 <https://mecho-os.onrender.com/spareparts>.
 
