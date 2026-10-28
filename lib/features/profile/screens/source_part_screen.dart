@@ -30,16 +30,20 @@ class _SourcePartScreenState extends State<SourcePartScreen> {
   final _barcodeController = TextEditingController();
   final _vehicleController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _garageController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _locationController = TextEditingController();
   final _imagePicker = ImagePicker();
   final _repository = SparePartsRepository();
   final List<XFile> _images = [];
+  late final Future<SparePartRequesterDetails> _requesterDetails;
 
   String? _selectedPosition;
   String? _selectedCondition;
   bool _isSending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _requesterDetails = _repository.getRequesterDetails();
+  }
 
   @override
   void dispose() {
@@ -47,9 +51,6 @@ class _SourcePartScreenState extends State<SourcePartScreen> {
     _barcodeController.dispose();
     _vehicleController.dispose();
     _descriptionController.dispose();
-    _garageController.dispose();
-    _phoneController.dispose();
-    _locationController.dispose();
     super.dispose();
   }
 
@@ -125,9 +126,6 @@ class _SourcePartScreenState extends State<SourcePartScreen> {
         vehicle: _vehicleController.text.trim(),
         position: _selectedPosition ?? '',
         description: _descriptionController.text.trim(),
-        mechanicName: _garageController.text.trim(),
-        phoneNumber: _phoneController.text.trim(),
-        location: _locationController.text.trim(),
         images: _images,
       );
       if (mounted) {
@@ -372,31 +370,61 @@ class _SourcePartScreenState extends State<SourcePartScreen> {
               ),
             ],
             const SizedBox(height: 24),
-            _sectionTitle(6, 'Your details and location'),
+            _sectionTitle(6, 'Your account details'),
             const SizedBox(height: 12),
-            _buildTextField(
-              controller: _garageController,
-              label: 'Your name / garage *',
-              hint: 'Name or registered garage',
-              prefixIcon: Icons.person_outline,
-              required: true,
-            ),
-            const SizedBox(height: 12),
-            _buildTextField(
-              controller: _phoneController,
-              label: 'Contact phone number *',
-              hint: 'e.g. 08012345678',
-              prefixIcon: Icons.phone_outlined,
-              keyboardType: TextInputType.phone,
-              required: true,
-            ),
-            const SizedBox(height: 12),
-            _buildTextField(
-              controller: _locationController,
-              label: 'Your location / city *',
-              hint: 'e.g. Akure, Ondo State',
-              prefixIcon: Icons.location_on_outlined,
-              required: true,
+            FutureBuilder<SparePartRequesterDetails>(
+              future: _requesterDetails,
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Text(
+                    'Could not load your account details: ${snapshot.error}',
+                    style: const TextStyle(color: AppColors.error),
+                  );
+                }
+                if (!snapshot.hasData) {
+                  return const LinearProgressIndicator();
+                }
+
+                final details = snapshot.data!;
+                return Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: AppColors.border),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _requesterDetail(
+                        Icons.person_outline,
+                        details.name.isEmpty ? 'Name not provided' : details.name,
+                      ),
+                      const SizedBox(height: 8),
+                      _requesterDetail(
+                        Icons.phone_outlined,
+                        details.phoneNumber.isEmpty
+                            ? 'Phone number not provided'
+                            : details.phoneNumber,
+                      ),
+                      const SizedBox(height: 8),
+                      _requesterDetail(
+                        Icons.location_on_outlined,
+                        details.location,
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        'These details are taken from your account and will be included with your request for sellers.',
+                        style: TextStyle(
+                          color: AppColors.greyText,
+                          fontSize: 12,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 16),
             Container(
@@ -457,6 +485,16 @@ class _SourcePartScreenState extends State<SourcePartScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _requesterDetail(IconData icon, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: AppColors.greyText),
+        const SizedBox(width: 10),
+        Expanded(child: Text(value)),
+      ],
     );
   }
 

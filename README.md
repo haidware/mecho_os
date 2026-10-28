@@ -65,6 +65,8 @@ and submit an offer with price, condition, and location. Mechanics can compare
 the offers under My Part Requests, chat with each responding seller, and accept
 one. Seller/mechanic chat updates live. Request images are stored in a private
 Supabase Storage bucket and served through short-lived signed URLs.
+The request automatically includes the mechanic's saved name, phone number,
+and workshop address from Supabase instead of asking for them again.
 The seller portal is available at
 <https://mecho-os.onrender.com/spareparts>.
 

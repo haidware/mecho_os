@@ -2,6 +2,20 @@ import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+class SparePartRequesterDetails {
+  const SparePartRequesterDetails({
+    required this.name,
+    required this.phoneNumber,
+    required this.location,
+    required this.workshopId,
+  });
+
+  final String name;
+  final String phoneNumber;
+  final String location;
+  final String? workshopId;
+}
+
 class SparePartsRepository {
   static const _bucket = 'spare-part-requests';
   final _supabase = Supabase.instance.client;
@@ -24,22 +38,11 @@ class SparePartsRepository {
         response?['status'] == 'active';
   }
 
-  Future<String> createRequest({
-    required String partName,
-    required String condition,
-    required String barcode,
-    required String vehicle,
-    required String position,
-    required String description,
-    required String mechanicName,
-    required String phoneNumber,
-    required String location,
-    required List<XFile> images,
-  }) async {
+  Future<SparePartRequesterDetails> getRequesterDetails() async {
     final userId = _userId;
     final profile = await _supabase
         .from('users')
-        .select('workshop_id,status')
+        .select('full_name,phone_number,workshop_id,status')
         .eq('id', userId)
         .maybeSingle();
     if (profile?['status'] != 'active') {
@@ -48,15 +51,62 @@ class SparePartsRepository {
       );
     }
 
-    var workshopId = profile?['workshop_id']?.toString();
-    if (workshopId == null || workshopId.isEmpty) {
-      final ownedWorkshop = await _supabase
+    Map<String, dynamic>? workshop;
+    final workshopId = profile?['workshop_id']?.toString();
+    if (workshopId != null && workshopId.isNotEmpty) {
+      workshop = await _supabase
           .from('workshops')
-          .select('id')
-          .eq('owner_id', userId)
+          .select('id,garage_name,phone_number,garage_address')
+          .eq('id', workshopId)
           .maybeSingle();
-      workshopId = ownedWorkshop?['id']?.toString();
     }
+    workshop ??= await _supabase
+        .from('workshops')
+        .select('id,garage_name,phone_number,garage_address')
+        .eq('owner_id', userId)
+        .maybeSingle();
+
+    final metadata = _supabase.auth.currentUser?.userMetadata ?? const {};
+    String firstNonEmpty(Iterable<Object?> values, {String fallback = ''}) {
+      for (final value in values) {
+        final text = value?.toString().trim() ?? '';
+        if (text.isNotEmpty) return text;
+      }
+      return fallback;
+    }
+
+    return SparePartRequesterDetails(
+      name: firstNonEmpty([
+        workshop?['garage_name'],
+        profile?['full_name'],
+      ]),
+      phoneNumber: firstNonEmpty([
+        workshop?['phone_number'],
+        profile?['phone_number'],
+      ]),
+      location: firstNonEmpty([
+        workshop?['garage_address'],
+        metadata['garage_address'],
+        metadata['location'],
+        metadata['city'],
+      ], fallback: 'Location not provided'),
+      workshopId: workshop?['id']?.toString() ??
+          (workshopId == null || workshopId.isEmpty ? null : workshopId),
+    );
+  }
+
+  Future<String> createRequest({
+    required String partName,
+    required String condition,
+    required String barcode,
+    required String vehicle,
+    required String position,
+    required String description,
+    required List<XFile> images,
+  }) async {
+    final userId = _userId;
+    final requester = await getRequesterDetails();
+    final workshopId = requester.workshopId;
     final request = await _supabase
         .from('spare_part_requests')
         .insert({
@@ -69,9 +119,9 @@ class SparePartsRepository {
           'vehicle': vehicle.isEmpty ? null : vehicle,
           'position': position.isEmpty ? null : position,
           'description': description.isEmpty ? null : description,
-          'mechanic_name': mechanicName,
-          'phone_number': phoneNumber,
-          'location': location,
+          'mechanic_name': requester.name,
+          'phone_number': requester.phoneNumber,
+          'location': requester.location,
           'status': 'draft',
           'image_paths': <String>[],
         })
