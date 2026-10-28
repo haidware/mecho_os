@@ -12,6 +12,47 @@ function prepareNotificationAudio() {
 }
 
 window.mechoPush = {
+  getSetupStatus: function () {
+    const userAgent = navigator.userAgent || '';
+    const isIOS =
+      /iPad|iPhone|iPod/.test(userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const standalone =
+      navigator.standalone === true ||
+      window.matchMedia('(display-mode: standalone)').matches;
+    const supported =
+      'Notification' in window &&
+      'serviceWorker' in navigator &&
+      'PushManager' in window;
+    let message = '';
+
+    if (!supported) {
+      message = 'This browser does not support web push notifications. Open Mecho OS in a supported browser.';
+    } else if (isIOS && !standalone) {
+      message = 'On iPhone or iPad, first use Share > Add to Home Screen, then open Mecho OS from its Home Screen icon. iOS only allows web push from the installed app.';
+    } else if (Notification.permission === 'denied') {
+      message = 'Notifications are blocked for this app. Allow them in your phone settings, then return to Mecho OS.';
+    }
+
+    return JSON.stringify({
+      supported,
+      isIOS,
+      standalone,
+      permission: supported ? Notification.permission : 'unsupported',
+      canRequest: supported && Notification.permission !== 'denied' && (!isIOS || standalone),
+      message
+    });
+  },
+  getSubscription: async function () {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      return 'null';
+    }
+    const registration = await navigator.serviceWorker.getRegistration('/');
+    const subscription = registration
+      ? await registration.pushManager.getSubscription()
+      : null;
+    return JSON.stringify(subscription ? subscription.toJSON() : null);
+  },
   subscribe: async function (applicationServerKey) {
     if (
       !('serviceWorker' in navigator) ||
@@ -19,6 +60,12 @@ window.mechoPush = {
       !('Notification' in window)
     ) {
       throw new Error('This browser does not support web push notifications.');
+    }
+
+    const setup = window.mechoPush.getSetupStatus();
+    const status = JSON.parse(setup);
+    if (!status.canRequest) {
+      throw new Error(status.message || 'Notifications are not available in this browser.');
     }
 
     prepareNotificationAudio();

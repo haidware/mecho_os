@@ -42,6 +42,20 @@ class SparePartsRepository {
     return hasActiveSellerAccount();
   }
 
+  Future<bool> canReceiveMarketplaceNotifications() async {
+    final profile = await _supabase
+        .from('users')
+        .select('role,status')
+        .eq('id', _userId)
+        .maybeSingle();
+    return profile?['status'] == 'active' &&
+        {
+          'workshop_owner',
+          'staff',
+          'spare_part_seller',
+        }.contains(profile?['role']);
+  }
+
   Future<SparePartRequesterDetails> getRequesterDetails() async {
     final userId = _userId;
     final profile = await _supabase
@@ -390,11 +404,12 @@ class SparePartsRepository {
     return List<Map<String, dynamic>>.from(response);
   }
 
-  Future<bool> hasPushSubscription() async {
+  Future<bool> hasPushSubscription(String endpoint) async {
     final response = await _supabase
         .from('spare_part_push_subscriptions')
         .select('id')
         .eq('user_id', _userId)
+        .eq('endpoint', endpoint)
         .limit(1);
     return response.isNotEmpty;
   }

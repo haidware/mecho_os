@@ -65,6 +65,149 @@ class MechoApp extends StatefulWidget {
 }
 
 class _MechoAppState extends State<MechoApp> {
+  Future<void> _maybeShowPushSetupPrompt(String userId) async {
+    if (!kIsWeb ||
+        _pushPublicKey.isEmpty ||
+        !_homePromptCompleted ||
+        _pushPromptInProgressForUser == userId ||
+        Supabase.instance.client.auth.currentUser?.id != userId) {
+      return;
+    }
+
+    _pushPromptInProgressForUser = userId;
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      final dismissedKey = 'marketplace_push_prompt_dismissed_$userId';
+      if (preferences.getBool(dismissedKey) ?? false) return;
+      if (!await _sparePartsRepository.canReceiveMarketplaceNotifications()) {
+        return;
+      }
+      final existingSubscription = await getExistingWebPushSubscription();
+      if (existingSubscription != null) {
+        await _sparePartsRepository.savePushSubscription(existingSubscription);
+        return;
+      }
+
+      final status = await getWebPushSetupStatus();
+      if (!mounted || Supabase.instance.client.auth.currentUser?.id != userId) {
+        return;
+      }
+      await WidgetsBinding.instance.endOfFrame;
+      final context = _navigatorKey.currentContext;
+      if (context == null || !context.mounted) return;
+
+      final canRequest = status['canRequest'] == true;
+      final deviceMessage = status['message']?.toString() ?? '';
+      final result = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          var enabling = false;
+          String? errorMessage;
+          return StatefulBuilder(
+            builder: (context, setDialogState) => AlertDialog(
+              icon: const Icon(Icons.notifications_active_outlined, size: 36),
+              title: const Text('Turn on phone notifications'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    canRequest
+                        ? 'Get alerts when mechanics and sellers reply to part requests, even when Mecho OS is not open.'
+                        : deviceMessage.isNotEmpty
+                            ? deviceMessage
+                            : 'Notifications are not available in this browser.',
+                  ),
+                  if (canRequest) ...[
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Tap Turn on, then choose Allow in the phone’s notification prompt. On iPhone or iPad, first add Mecho OS to the Home Screen and open it from there.',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                  ],
+                  if (errorMessage != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      errorMessage!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: enabling
+                      ? null
+                      : () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Not now'),
+                ),
+                if (canRequest)
+                  FilledButton(
+                    onPressed: enabling
+                        ? null
+                        : () async {
+                            setDialogState(() {
+                              enabling = true;
+                              errorMessage = null;
+                            });
+                            try {
+                              final subscription =
+                                  await createWebPushSubscription(
+                                      _pushPublicKey);
+                              if (Supabase
+                                      .instance.client.auth.currentUser?.id !=
+                                  userId) {
+                                throw StateError(
+                                  'Your sign-in changed. Please enable notifications again.',
+                                );
+                              }
+                              await _sparePartsRepository
+                                  .savePushSubscription(subscription);
+                              if (dialogContext.mounted) {
+                                Navigator.of(dialogContext).pop(true);
+                              }
+                              _scaffoldMessengerKey.currentState
+                                  ?.showSnackBar(const SnackBar(
+                                content: Text(
+                                  'Notifications are enabled on this phone.',
+                                ),
+                              ));
+                            } catch (error) {
+                              if (dialogContext.mounted) {
+                                setDialogState(() {
+                                  enabling = false;
+                                  errorMessage = error.toString();
+                                });
+                              }
+                            }
+                          },
+                    child: Text(enabling ? 'Enabling...' : 'Turn on'),
+                  ),
+              ],
+            ),
+          );
+        },
+      );
+      if (result != true) {
+        await preferences.setBool(dismissedKey, true);
+      }
+    } catch (error, stackTrace) {
+      debugPrint('Could not show phone notification setup: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    } finally {
+      if (_pushPromptInProgressForUser == userId) {
+        _pushPromptInProgressForUser = null;
+      }
+    }
+  }
+
+  static const _pushPublicKey = String.fromEnvironment(
+    'WEB_PUSH_VAPID_PUBLIC_KEY',
+  );
+
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey =
       GlobalKey<ScaffoldMessengerState>();
@@ -73,7 +216,9 @@ class _MechoAppState extends State<MechoApp> {
   StreamSubscription<dynamic>? _authSubscription;
   StreamSubscription<List<Map<String, dynamic>>>? _notificationSubscription;
   String? _notificationUserId;
+  String? _pushPromptInProgressForUser;
   bool _isFirstNotificationBatch = true;
+  bool _homePromptCompleted = false;
 
   @override
   void initState() {
@@ -81,15 +226,29 @@ class _MechoAppState extends State<MechoApp> {
     final supabase = Supabase.instance.client;
     _watchNotifications(supabase.auth.currentUser?.id);
     _authSubscription = supabase.auth.onAuthStateChange.listen(
-      (state) => _watchNotifications(state.session?.user.id),
+      (state) {
+        final userId = state.session?.user.id;
+        _watchNotifications(userId);
+        if (userId != null && _homePromptCompleted) {
+          unawaited(_maybeShowPushSetupPrompt(userId));
+        }
+      },
       onError: (Object error, StackTrace stackTrace) {
         debugPrint('Could not monitor notification sign-in state: $error');
         debugPrintStack(stackTrace: stackTrace);
       },
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _showAddToHomeScreenPrompt();
+      unawaited(_runInitialPrompts());
     });
+  }
+
+  Future<void> _runInitialPrompts() async {
+    await _showAddToHomeScreenPrompt();
+    if (!mounted) return;
+    _homePromptCompleted = true;
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId != null) unawaited(_maybeShowPushSetupPrompt(userId));
   }
 
   void _watchNotifications(String? userId) {
@@ -124,11 +283,11 @@ class _MechoAppState extends State<MechoApp> {
       return;
     }
 
-    final newNotifications =
-        unread.where((entry) => _seenNotificationIds.add(entry.key)).toList()
-          ..sort((left, right) =>
-              (left.value['created_at']?.toString() ?? '')
-                  .compareTo(right.value['created_at']?.toString() ?? ''));
+    final newNotifications = unread
+        .where((entry) => _seenNotificationIds.add(entry.key))
+        .toList()
+      ..sort((left, right) => (left.value['created_at']?.toString() ?? '')
+          .compareTo(right.value['created_at']?.toString() ?? ''));
     if (newNotifications.isNotEmpty) {
       _showMarketplaceNotification(newNotifications.last.value);
     }

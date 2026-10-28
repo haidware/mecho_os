@@ -30,12 +30,19 @@ class _SparePartNotificationsScreenState
   void initState() {
     super.initState();
     _notifications = _repository.getNotifications();
-    _pushEnabled = _repository.hasPushSubscription();
+    _pushEnabled = _isCurrentDeviceSubscribed();
+  }
+
+  Future<bool> _isCurrentDeviceSubscribed() async {
+    final subscription = await getExistingWebPushSubscription();
+    final endpoint = subscription?['endpoint']?.toString();
+    if (endpoint == null || endpoint.isEmpty) return false;
+    return _repository.hasPushSubscription(endpoint);
   }
 
   Future<void> _refresh() async {
     final notifications = _repository.getNotifications();
-    final pushEnabled = _repository.hasPushSubscription();
+    final pushEnabled = _isCurrentDeviceSubscribed();
     setState(() {
       _notifications = notifications;
       _pushEnabled = pushEnabled;

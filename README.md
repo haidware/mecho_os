@@ -162,5 +162,8 @@ select vault.create_secret('<same secret as PUSH_WEBHOOK_SECRET>', 'mecho_push_w
 
 The app's static build receives only the VAPID public key. The VAPID private
 key, webhook secret, and Supabase service-role key belong only in protected
-backend/Vault configuration. Users must enable push notifications in the
-app's Notifications page on each browser/device.
+backend/Vault configuration. Signed-in mechanics and sellers are prompted to
+enable push notifications separately on each browser/device; they can also
+enable them from the app's Notifications page. On iPhone and iPad, the user
+must add Mecho OS to the Home Screen and open the installed app before
+allowing notifications.
