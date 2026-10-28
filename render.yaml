@@ -19,7 +19,7 @@ services:
     name: mecho-os-seller-admin-api
     runtime: node
     rootDir: server
-    buildCommand: node --check src/server.js
+    buildCommand: npm ci && node --check src/server.js
     startCommand: npm start
     healthCheckPath: /health
     envVars:
