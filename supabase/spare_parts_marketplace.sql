@@ -4,7 +4,7 @@ BEGIN;
 
 CREATE TABLE IF NOT EXISTS public.spare_part_requests (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  workshop_id uuid NOT NULL REFERENCES public.workshops(id) ON DELETE CASCADE,
+  workshop_id uuid REFERENCES public.workshops(id) ON DELETE CASCADE,
   mechanic_user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   part_name text NOT NULL,
   condition_requested text NOT NULL CHECK (condition_requested IN ('New', 'Used')),
@@ -190,7 +190,8 @@ AS $function$
       WHERE u.id::text = auth.uid()::text
         AND u.status = 'active'
         AND (
-          u.workshop_id::text = p_workshop_id::text
+          p_workshop_id IS NULL
+          OR u.workshop_id::text = p_workshop_id::text
           OR EXISTS (
             SELECT 1
             FROM public.workshops AS w
@@ -213,7 +214,9 @@ AS $function$
     FROM public.spare_part_requests AS r
     WHERE r.mechanic_user_id::text = auth.uid()::text
       AND r.status = 'draft'
-      AND p_name LIKE r.workshop_id::text || '/' || r.id::text || '/%'
+      AND p_name LIKE (
+        COALESCE(r.workshop_id::text || '/', '') || r.id::text || '/%'
+      )
       AND public.can_create_spare_part_request(r.workshop_id, auth.uid())
   )
 $function$;
@@ -229,16 +232,13 @@ AS $function$
     SELECT 1
     FROM public.spare_part_requests AS r
     WHERE p_name = ANY(r.image_paths)
-      AND p_name LIKE r.workshop_id::text || '/' || r.id::text || '/%'
+      AND p_name LIKE (
+        COALESCE(r.workshop_id::text || '/', '') || r.id::text || '/%'
+      )
       AND (
         (
           r.mechanic_user_id::text = auth.uid()::text
-          AND EXISTS (
-            SELECT 1
-            FROM public.users AS u
-            WHERE u.id::text = auth.uid()::text
-              AND u.status = 'active'
-          )
+          AND public.can_create_spare_part_request(r.workshop_id, auth.uid())
         )
         OR (
           public.is_active_spare_part_seller()

@@ -3,6 +3,9 @@
 -- authorization policies without changing marketplace data.
 BEGIN;
 
+ALTER TABLE public.spare_part_requests
+  ALTER COLUMN workshop_id DROP NOT NULL;
+
 CREATE OR REPLACE FUNCTION public.can_create_spare_part_request(
   p_workshop_id uuid,
   p_mechanic_user_id uuid
@@ -21,7 +24,8 @@ AS $function$
       WHERE u.id::text = auth.uid()::text
         AND u.status = 'active'
         AND (
-          u.workshop_id::text = p_workshop_id::text
+          p_workshop_id IS NULL
+          OR u.workshop_id::text = p_workshop_id::text
           OR EXISTS (
             SELECT 1
             FROM public.workshops AS w
@@ -154,7 +158,9 @@ AS $function$
     FROM public.spare_part_requests AS r
     WHERE r.mechanic_user_id::text = auth.uid()::text
       AND r.status = 'draft'
-      AND p_name LIKE r.workshop_id::text || '/' || r.id::text || '/%'
+      AND p_name LIKE (
+        COALESCE(r.workshop_id::text || '/', '') || r.id::text || '/%'
+      )
       AND public.can_create_spare_part_request(r.workshop_id, auth.uid())
   )
 $function$;
@@ -170,7 +176,9 @@ AS $function$
     SELECT 1
     FROM public.spare_part_requests AS r
     WHERE p_name = ANY(r.image_paths)
-      AND p_name LIKE r.workshop_id::text || '/' || r.id::text || '/%'
+      AND p_name LIKE (
+        COALESCE(r.workshop_id::text || '/', '') || r.id::text || '/%'
+      )
       AND (
         (
           r.mechanic_user_id::text = auth.uid()::text

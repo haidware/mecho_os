@@ -57,14 +57,11 @@ class SparePartsRepository {
           .maybeSingle();
       workshopId = ownedWorkshop?['id']?.toString();
     }
-    if (workshopId == null || workshopId.isEmpty) {
-      throw StateError('No workshop is linked to this account.');
-    }
-
     final request = await _supabase
         .from('spare_part_requests')
         .insert({
-          'workshop_id': workshopId,
+          'workshop_id':
+              workshopId == null || workshopId.isEmpty ? null : workshopId,
           'mechanic_user_id': userId,
           'part_name': partName,
           'condition_requested': condition,
@@ -88,8 +85,11 @@ class SparePartsRepository {
         final image = images[index];
         final imageBytes = await image.readAsBytes();
         final extension = _extensionFor(image);
+        final requestFolder = workshopId == null || workshopId.isEmpty
+            ? requestId
+            : '$workshopId/$requestId';
         final path =
-            '$workshopId/$requestId/${DateTime.now().microsecondsSinceEpoch}_$index.$extension';
+            '$requestFolder/${DateTime.now().microsecondsSinceEpoch}_$index.$extension';
         await _supabase.storage.from(_bucket).uploadBinary(
               path,
               imageBytes,

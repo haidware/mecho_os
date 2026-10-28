@@ -58,12 +58,12 @@ script.
 
 ## Spare-parts marketplace
 
-The Source a Part form is available to active registered accounts linked to a
-workshop. It publishes requests and photos to the in-app marketplace.
-Registered sellers sign in at `/spareparts`, view open requests, and submit an
-offer with price, condition, and location. Mechanics can compare the offers
-under My Part Requests, chat with each responding seller, and accept one.
-Seller/mechanic chat updates live. Request images are stored in a private
+The Source a Part form is available to any active registered account, with or
+without a workshop link. It publishes requests and photos to the in-app
+marketplace. Registered sellers sign in at `/spareparts`, view open requests,
+and submit an offer with price, condition, and location. Mechanics can compare
+the offers under My Part Requests, chat with each responding seller, and accept
+one. Seller/mechanic chat updates live. Request images are stored in a private
 Supabase Storage bucket and served through short-lived signed URLs.
 The seller portal is available at
 <https://mecho-os.onrender.com/spareparts>.
@@ -75,8 +75,9 @@ tables, their row-level security policies, and the private image bucket. Render
 does not run SQL scripts automatically.
 If an existing deployment reports SQLSTATE `42501` when publishing a request,
 run [`supabase/fix_spare_parts_request_insert_rls.sql`](./supabase/fix_spare_parts_request_insert_rls.sql)
-in the Supabase SQL Editor, then retry. It repairs request, image, and
-marketplace access authorization without deleting marketplace data.
+in the Supabase SQL Editor, then retry. It allows active accounts without a
+workshop link to publish, and repairs request, image, and marketplace access
+authorization without deleting marketplace data.
 
 Spare-part seller sign-up requires a one-time numeric ID issued by an admin at
 <https://mecho-os.onrender.com/admin>. Sellers create their account at
