@@ -267,6 +267,7 @@ async function handlePushNotification(request, response) {
   }
 
   const payload = JSON.stringify({
+    id: notification.id,
     title: notification.title,
     body: String(notification.body ?? '').slice(0, 180),
     url: '/notifications',

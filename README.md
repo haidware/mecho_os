@@ -74,6 +74,13 @@ and in-app notification updates arrive live. Request images are stored in a
 private Supabase Storage bucket and served through short-lived signed URLs.
 The request automatically includes the mechanic's saved name, phone number,
 and workshop address from Supabase instead of asking for them again.
+New marketplace notifications show an in-app alert while Mecho OS is open and
+send browser push alerts to enrolled devices for both mechanics and sellers.
+Each signed-in user must enable alerts from Notifications on each browser or
+device. On iPhone and iPad, install Mecho OS to the Home Screen and enable
+notifications from the installed app. Foreground alerts use a popup and
+available sound/vibration; background sound and vibration follow browser and
+device notification settings.
 The seller portal is available at
 <https://mecho-os.onrender.com/spareparts>.
 

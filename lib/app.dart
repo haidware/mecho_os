@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/constants/app_routes.dart';
 import 'core/theme/app_theme.dart';
 import 'shared/placeholder_screen.dart';
@@ -47,6 +51,8 @@ import 'features/profile/screens/part_request_chat_screen.dart';
 import 'features/reports/screens/reports_screen.dart';
 import 'features/profile/screens/settings_screen.dart';
 import 'features/community/screens/community_screen.dart';
+import 'repositories/spare_parts_repository.dart';
+import 'services/web_push_subscription.dart';
 
 final ValueNotifier<Locale> appLocale = ValueNotifier(const Locale('en'));
 
@@ -60,13 +66,137 @@ class MechoApp extends StatefulWidget {
 
 class _MechoAppState extends State<MechoApp> {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey =
+      GlobalKey<ScaffoldMessengerState>();
+  final _sparePartsRepository = SparePartsRepository();
+  final Set<String> _seenNotificationIds = {};
+  StreamSubscription<dynamic>? _authSubscription;
+  StreamSubscription<List<Map<String, dynamic>>>? _notificationSubscription;
+  String? _notificationUserId;
+  bool _isFirstNotificationBatch = true;
 
   @override
   void initState() {
     super.initState();
+    final supabase = Supabase.instance.client;
+    _watchNotifications(supabase.auth.currentUser?.id);
+    _authSubscription = supabase.auth.onAuthStateChange.listen(
+      (state) => _watchNotifications(state.session?.user.id),
+      onError: (Object error, StackTrace stackTrace) {
+        debugPrint('Could not monitor notification sign-in state: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      },
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _showAddToHomeScreenPrompt();
     });
+  }
+
+  void _watchNotifications(String? userId) {
+    if (_notificationUserId == userId) return;
+    _notificationUserId = userId;
+    _isFirstNotificationBatch = true;
+    _seenNotificationIds.clear();
+    unawaited(_notificationSubscription?.cancel());
+    _notificationSubscription = null;
+    if (userId == null) return;
+
+    _notificationSubscription = _sparePartsRepository
+        .streamUnreadNotifications()
+        .listen(_handleUnreadNotifications,
+            onError: (Object error, StackTrace stackTrace) {
+      debugPrint('Could not monitor marketplace notifications: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    });
+  }
+
+  void _handleUnreadNotifications(List<Map<String, dynamic>> notifications) {
+    final unread = notifications
+        .map((notification) => MapEntry(
+              notification['id']?.toString() ?? '',
+              notification,
+            ))
+        .where((entry) => entry.key.isNotEmpty)
+        .toList();
+    if (_isFirstNotificationBatch) {
+      _seenNotificationIds.addAll(unread.map((entry) => entry.key));
+      _isFirstNotificationBatch = false;
+      return;
+    }
+
+    final newNotifications =
+        unread.where((entry) => _seenNotificationIds.add(entry.key)).toList()
+          ..sort((left, right) =>
+              (left.value['created_at']?.toString() ?? '')
+                  .compareTo(right.value['created_at']?.toString() ?? ''));
+    if (newNotifications.isNotEmpty) {
+      _showMarketplaceNotification(newNotifications.last.value);
+    }
+  }
+
+  void _showMarketplaceNotification(Map<String, dynamic> notification) {
+    if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+      return;
+    }
+
+    unawaited(HapticFeedback.vibrate().catchError((Object error) {
+      debugPrint('Could not vibrate for marketplace notification: $error');
+    }));
+    if (kIsWeb) {
+      unawaited(playWebPushAlert().catchError((Object error) {
+        debugPrint('Could not play marketplace notification alert: $error');
+      }));
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final messenger = _scaffoldMessengerKey.currentState;
+      if (messenger == null || !mounted) return;
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 8),
+            content: Row(
+              children: [
+                const Icon(Icons.notifications_active, color: Colors.white),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        notification['title']?.toString() ??
+                            'Marketplace update',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        notification['body']?.toString() ?? '',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            action: SnackBarAction(
+              label: 'VIEW',
+              textColor: Colors.white,
+              onPressed: () => _navigatorKey.currentState
+                  ?.pushNamed(AppRoutes.notifications),
+            ),
+          ),
+        );
+    });
+  }
+
+  @override
+  void dispose() {
+    unawaited(_authSubscription?.cancel());
+    unawaited(_notificationSubscription?.cancel());
+    super.dispose();
   }
 
   Future<void> _showAddToHomeScreenPrompt() async {
@@ -112,6 +242,7 @@ class _MechoAppState extends State<MechoApp> {
       builder: (context, locale, child) {
         return MaterialApp(
           navigatorKey: _navigatorKey,
+          scaffoldMessengerKey: _scaffoldMessengerKey,
           debugShowCheckedModeBanner: false,
           title: 'Mecho OS',
           theme: AppTheme.lightTheme,

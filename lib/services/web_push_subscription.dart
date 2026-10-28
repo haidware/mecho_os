@@ -4,3 +4,7 @@ import 'web_push_subscription_stub.dart'
 Future<Map<String, dynamic>> createWebPushSubscription(String publicKey) {
   return platform.createWebPushSubscription(publicKey);
 }
+
+Future<void> playWebPushAlert() {
+  return platform.playWebPushAlert();
+}

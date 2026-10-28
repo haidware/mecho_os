@@ -11,6 +11,10 @@ self.addEventListener('push', (event) => {
     body: payload.body || 'You have a new spare-parts marketplace update.',
     icon: '/icons/Icon-192.png',
     badge: '/icons/Icon-192.png',
+    tag: payload.id || `mecho-${Date.now()}`,
+    renotify: true,
+    silent: false,
+    vibrate: [180, 90, 180],
     data: { url: payload.url || '/notifications' }
   };
   event.waitUntil(self.registration.showNotification(title, options));

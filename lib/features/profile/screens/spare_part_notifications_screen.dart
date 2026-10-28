@@ -22,6 +22,7 @@ class _SparePartNotificationsScreenState
 
   final _repository = SparePartsRepository();
   late Future<List<Map<String, dynamic>>> _notifications;
+  late Future<bool> _pushEnabled;
   bool _enablingPush = false;
   bool _markingAllRead = false;
 
@@ -29,12 +30,18 @@ class _SparePartNotificationsScreenState
   void initState() {
     super.initState();
     _notifications = _repository.getNotifications();
+    _pushEnabled = _repository.hasPushSubscription();
   }
 
   Future<void> _refresh() async {
     final notifications = _repository.getNotifications();
-    setState(() => _notifications = notifications);
+    final pushEnabled = _repository.hasPushSubscription();
+    setState(() {
+      _notifications = notifications;
+      _pushEnabled = pushEnabled;
+    });
     await notifications;
+    await pushEnabled;
   }
 
   Future<void> _enablePush() async {
@@ -48,7 +55,10 @@ class _SparePartNotificationsScreenState
     try {
       final subscription = await createWebPushSubscription(_pushPublicKey);
       await _repository.savePushSubscription(subscription);
-      _showMessage('Push notifications are enabled on this device.');
+      if (mounted) setState(() => _pushEnabled = Future.value(true));
+      _showMessage(
+        'Alerts are enabled on this device. Device notification settings control background sound and vibration.',
+      );
     } catch (error) {
       _showMessage('Could not enable push notifications: $error', error: true);
     } finally {
@@ -157,66 +167,174 @@ class _SparePartNotificationsScreenState
         future: _notifications,
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  'Could not load notifications: ${snapshot.error}',
-                  textAlign: TextAlign.center,
+            return Column(
+              children: [
+                _pushAlertsCard(),
+                Expanded(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        'Could not load notifications: ${snapshot.error}',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+              ],
             );
           }
           if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final notifications = snapshot.data!;
-          if (notifications.isEmpty) {
-            return RefreshIndicator(
-              onRefresh: _refresh,
-              child: ListView(
-                children: const [
-                  SizedBox(height: 180),
-                  Center(child: Text('You are all caught up.')),
-                ],
-              ),
+            return Column(
+              children: [
+                _pushAlertsCard(),
+                const Expanded(
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              ],
             );
           }
-          return RefreshIndicator(
-            onRefresh: _refresh,
-            child: ListView.separated(
-              itemCount: notifications.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                final notification = notifications[index];
-                final isUnread = notification['read_at'] == null;
-                return ListTile(
-                  leading: Icon(
-                    isUnread
-                        ? Icons.markunread_outlined
-                        : Icons.drafts_outlined,
-                    color: isUnread ? AppColors.primary : AppColors.greyText,
+          final notifications = snapshot.data!;
+          return Column(
+            children: [
+              _pushAlertsCard(),
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: _refresh,
+                  child: notifications.isEmpty
+                      ? ListView(
+                          children: const [
+                            SizedBox(height: 140),
+                            Center(child: Text('You are all caught up.')),
+                          ],
+                        )
+                      : ListView.separated(
+                          itemCount: notifications.length,
+                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          itemBuilder: (context, index) {
+                            final notification = notifications[index];
+                            final isUnread = notification['read_at'] == null;
+                            return ListTile(
+                              leading: Icon(
+                                isUnread
+                                    ? Icons.markunread_outlined
+                                    : Icons.drafts_outlined,
+                                color: isUnread
+                                    ? AppColors.primary
+                                    : AppColors.greyText,
+                              ),
+                              title: Text(
+                                notification['title']?.toString() ??
+                                    'Marketplace update',
+                                style: TextStyle(
+                                  fontWeight: isUnread
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                ),
+                              ),
+                              subtitle: Text(
+                                notification['body']?.toString() ?? '',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              trailing: isUnread
+                                  ? const Icon(Icons.circle,
+                                      size: 9, color: AppColors.primary)
+                                  : null,
+                              onTap: () => _openNotification(notification),
+                            );
+                          },
+                        ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _pushAlertsCard() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: FutureBuilder<bool>(
+        future: _pushEnabled,
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Text(
+              'Could not check this device’s alert status: ${snapshot.error}',
+              style: const TextStyle(color: AppColors.error),
+            );
+          }
+
+          final enabled = snapshot.data == true;
+          final canEnable = kIsWeb && _pushPublicKey.isNotEmpty;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    enabled
+                        ? Icons.notifications_active
+                        : Icons.notifications_none,
+                    color: enabled ? AppColors.success : AppColors.primary,
                   ),
-                  title: Text(
-                    notification['title']?.toString() ?? 'Marketplace update',
-                    style: TextStyle(
-                      fontWeight:
-                          isUnread ? FontWeight.bold : FontWeight.normal,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      enabled
+                          ? 'Alerts enabled on this device'
+                          : 'Get marketplace alerts',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
-                  subtitle: Text(
-                    notification['body']?.toString() ?? '',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                enabled
+                    ? 'This account is subscribed on this browser. Allow notifications in device settings for lock-screen alerts; sound and vibration follow your device settings.'
+                    : canEnable
+                        ? 'Enable popup alerts for mechanics and sellers on this device. Allow notifications when your browser asks. On iPhone or iPad, add Mecho OS to the Home Screen and open it there first.'
+                        : kIsWeb
+                            ? 'Browser push has not been configured for this app.'
+                            : 'Browser push alerts are available in the web app.',
+                style: const TextStyle(
+                  color: AppColors.greyText,
+                  fontSize: 12,
+                  height: 1.4,
+                ),
+              ),
+              if (!enabled && canEnable) ...[
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilledButton.icon(
+                    onPressed: _enablingPush ? null : _enablePush,
+                    icon: _enablingPush
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Icon(Icons.notifications_active_outlined),
+                    label: Text(
+                      _enablingPush ? 'Enabling...' : 'Enable alerts on device',
+                    ),
                   ),
-                  trailing: isUnread
-                      ? const Icon(Icons.circle,
-                          size: 9, color: AppColors.primary)
-                      : null,
-                  onTap: () => _openNotification(notification),
-                );
-              },
-            ),
+                ),
+              ],
+            ],
           );
         },
       ),

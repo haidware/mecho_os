@@ -390,6 +390,15 @@ class SparePartsRepository {
     return List<Map<String, dynamic>>.from(response);
   }
 
+  Future<bool> hasPushSubscription() async {
+    final response = await _supabase
+        .from('spare_part_push_subscriptions')
+        .select('id')
+        .eq('user_id', _userId)
+        .limit(1);
+    return response.isNotEmpty;
+  }
+
   Future<void> markNotificationRead(String notificationId) async {
     await _supabase
         .from('spare_part_notifications')
