@@ -283,6 +283,16 @@ class SparePartsRepository {
         .map((messages) => List<Map<String, dynamic>>.from(messages));
   }
 
+  Future<List<Map<String, dynamic>>> getRequestMessages(
+      String requestId) async {
+    final response = await _supabase
+        .from('spare_part_request_messages')
+        .select()
+        .eq('request_id', requestId)
+        .order('created_at');
+    return List<Map<String, dynamic>>.from(response);
+  }
+
   Future<void> sendRequestMessage({
     required String requestId,
     required String message,
@@ -345,6 +355,26 @@ class SparePartsRepository {
       throw const FormatException('The selected seller contact is invalid.');
     }
     return Map<String, dynamic>.from(contact);
+  }
+
+  Future<List<Map<String, dynamic>>> getRequestSellerContacts(
+    String requestId,
+  ) async {
+    final response = await _supabase.rpc(
+      'get_spare_part_request_seller_contacts',
+      params: {'p_request_id': requestId},
+    );
+    if (response is! List) {
+      throw const FormatException(
+        'The request seller contact response is invalid.',
+      );
+    }
+    return response.map((contact) {
+      if (contact is! Map) {
+        throw const FormatException('A request seller contact is invalid.');
+      }
+      return Map<String, dynamic>.from(contact);
+    }).toList();
   }
 
   Stream<List<Map<String, dynamic>>> streamChatMessages({

@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_colors.dart';
@@ -69,12 +72,18 @@ class _PartRequestThreadScreenState extends State<PartRequestThreadScreen> {
   final _locationController = TextEditingController();
   final _sellerNameController = TextEditingController();
   final _phoneController = TextEditingController();
-  late final Stream<List<Map<String, dynamic>>> _messages;
+  StreamSubscription<List<Map<String, dynamic>>>? _messagesSubscription;
+  Timer? _messagesRefreshTimer;
 
   Map<String, dynamic>? _request;
   Map<String, dynamic>? _selectedSellerContact;
+  List<Map<String, dynamic>> _sellerContacts = [];
+  List<Map<String, dynamic>> _messages = [];
   List<String> _requestImageUrls = [];
   bool _loading = true;
+  bool _messagesLoading = true;
+  bool _contactsLoading = true;
+  bool _refreshingMessages = false;
   bool _sending = false;
   bool _savingOffer = false;
   String? _error;
@@ -83,12 +92,77 @@ class _PartRequestThreadScreenState extends State<PartRequestThreadScreen> {
   @override
   void initState() {
     super.initState();
-    _messages = _repository.streamRequestMessages(widget.requestId);
+    _startMessageUpdates();
     _loadRequest();
+  }
+
+  void _startMessageUpdates() {
+    _messagesSubscription = _repository
+        .streamRequestMessages(widget.requestId)
+        .listen(_setMessages, onError: (Object error, StackTrace stackTrace) {
+      debugPrint('Request chat realtime connection failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      unawaited(_refreshMessages(refreshContacts: true));
+    });
+    _messagesRefreshTimer = Timer.periodic(
+      const Duration(seconds: 8),
+      (_) => unawaited(_refreshMessages(refreshContacts: true)),
+    );
+    unawaited(_refreshMessages(refreshContacts: true));
+  }
+
+  void _setMessages(List<Map<String, dynamic>> messages) {
+    if (!mounted) return;
+    setState(() {
+      _messages = messages;
+      _messagesLoading = false;
+    });
+  }
+
+  Future<void> _refreshMessages({bool refreshContacts = false}) async {
+    if (_refreshingMessages) return;
+    _refreshingMessages = true;
+    try {
+      _setMessages(await _repository.getRequestMessages(widget.requestId));
+      if (refreshContacts && !widget.sellerMode && _request != null) {
+        await _loadSellerContacts(_request!['status']?.toString());
+      }
+    } catch (error, stackTrace) {
+      debugPrint('Could not refresh request chat messages: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    } finally {
+      _refreshingMessages = false;
+    }
+  }
+
+  Future<void> _loadSellerContacts(String? requestStatus) async {
+    if (widget.sellerMode) return;
+    try {
+      final contacts =
+          await _repository.getRequestSellerContacts(widget.requestId);
+      Map<String, dynamic>? selectedContact;
+      if (requestStatus == 'accepted') {
+        selectedContact =
+            await _repository.getSelectedSellerContact(widget.requestId);
+      }
+      if (!mounted) return;
+      setState(() {
+        _sellerContacts = contacts;
+        _selectedSellerContact = selectedContact;
+        _contactError = null;
+        _contactsLoading = false;
+      });
+    } catch (error, stackTrace) {
+      debugPrint('Could not load seller contact details: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) setState(() => _contactsLoading = false);
+    }
   }
 
   @override
   void dispose() {
+    unawaited(_messagesSubscription?.cancel());
+    _messagesRefreshTimer?.cancel();
     _messageController.dispose();
     _priceController.dispose();
     _conditionController.dispose();
@@ -115,25 +189,14 @@ class _PartRequestThreadScreenState extends State<PartRequestThreadScreen> {
         _conditionController.text = offer?['condition']?.toString() ?? '';
         _locationController.text = offer?['location']?.toString() ?? '';
       }
-      Map<String, dynamic>? selectedSellerContact;
-      String? contactError;
-      if (!widget.sellerMode && request['status'] == 'accepted') {
-        try {
-          selectedSellerContact =
-              await _repository.getSelectedSellerContact(widget.requestId);
-        } catch (error) {
-          contactError = error.toString();
-        }
-      }
       if (mounted) {
         setState(() {
           _request = request;
-          _selectedSellerContact = selectedSellerContact;
-          _contactError = contactError;
           _requestImageUrls = imageUrls;
           _loading = false;
         });
       }
+      await _loadSellerContacts(request['status']?.toString());
     } catch (error) {
       if (mounted) {
         setState(() {
@@ -158,6 +221,7 @@ class _PartRequestThreadScreenState extends State<PartRequestThreadScreen> {
         message: message,
       );
       _messageController.clear();
+      unawaited(_refreshMessages());
     } catch (error) {
       if (mounted) {
         _showMessage('Could not send message: $error', isError: true);
@@ -251,26 +315,11 @@ class _PartRequestThreadScreenState extends State<PartRequestThreadScreen> {
         offerId: offerId,
       );
       final request = await _repository.getRequest(widget.requestId);
-      Map<String, dynamic>? sellerContact;
-      String? contactError;
-      try {
-        sellerContact =
-            await _repository.getSelectedSellerContact(widget.requestId);
-      } catch (error) {
-        contactError = error.toString();
-      }
       if (mounted) {
-        setState(() {
-          _request = request;
-          _selectedSellerContact = sellerContact;
-          _contactError = contactError;
-        });
+        setState(() => _request = request);
+        await _loadSellerContacts(request['status']?.toString());
         _showMessage(
-          contactError == null
-              ? 'Offer accepted. You can now call the seller or chat privately.'
-              : 'Offer accepted, but seller contact could not be loaded: $contactError',
-          isError: contactError != null,
-        );
+            'Offer accepted. You can call the seller or chat privately.');
       }
     } catch (error) {
       if (mounted) {
@@ -295,9 +344,7 @@ class _PartRequestThreadScreenState extends State<PartRequestThreadScreen> {
     );
   }
 
-  Future<void> _callSelectedSeller() async {
-    final phoneNumber =
-        _selectedSellerContact?['phone_number']?.toString().trim() ?? '';
+  Future<void> _callSeller(String phoneNumber) async {
     if (phoneNumber.isEmpty) {
       _showMessage('This seller has not provided a phone number.',
           isError: true);
@@ -309,6 +356,11 @@ class _PartRequestThreadScreenState extends State<PartRequestThreadScreen> {
       _showMessage('Could not open the phone app to call this seller.',
           isError: true);
     }
+  }
+
+  Future<void> _copyContactValue(String value, String label) async {
+    await Clipboard.setData(ClipboardData(text: value));
+    if (mounted) _showMessage('$label copied.');
   }
 
   void _showMessage(String message, {bool isError = false}) {
@@ -347,38 +399,23 @@ class _PartRequestThreadScreenState extends State<PartRequestThreadScreen> {
                   children: [
                     if (_request != null) _requestSummary(_request!),
                     Expanded(
-                      child: StreamBuilder<List<Map<String, dynamic>>>(
-                        stream: _messages,
-                        builder: (context, snapshot) {
-                          if (snapshot.hasError) {
-                            return Center(
-                              child: Text(
-                                'Could not load chat: ${snapshot.error}',
-                                textAlign: TextAlign.center,
-                              ),
-                            );
-                          }
-                          if (!snapshot.hasData) {
-                            return const Center(
+                      child: _messagesLoading
+                          ? const Center(
                               child: CircularProgressIndicator(),
-                            );
-                          }
-                          final messages = snapshot.data!;
-                          return ListView.builder(
-                            reverse: true,
-                            padding: const EdgeInsets.all(14),
-                            itemCount: messages.length + 1,
-                            itemBuilder: (context, index) {
-                              if (index == messages.length) {
-                                return _requestPostBubble(_request!);
-                              }
-                              final message =
-                                  messages[messages.length - 1 - index];
-                              return _messageBubble(message);
-                            },
-                          );
-                        },
-                      ),
+                            )
+                          : ListView.builder(
+                              reverse: true,
+                              padding: const EdgeInsets.all(14),
+                              itemCount: _messages.length + 1,
+                              itemBuilder: (context, index) {
+                                if (index == _messages.length) {
+                                  return _requestPostBubble(_request!);
+                                }
+                                final message =
+                                    _messages[_messages.length - 1 - index];
+                                return _messageBubble(message);
+                              },
+                            ),
                     ),
                     _composer(),
                   ],
@@ -544,6 +581,17 @@ class _PartRequestThreadScreenState extends State<PartRequestThreadScreen> {
         message['sender_location']?.toString() ?? 'Location not provided';
     final selectedOffer = _request?['selected_offer_id']?.toString() ==
         message['offer_id']?.toString();
+    final offerId = message['offer_id']?.toString();
+    final sellerContact =
+        _sellerContacts.cast<Map<String, dynamic>?>().firstWhere(
+              (contact) => contact?['offer_id']?.toString() == offerId,
+              orElse: () => selectedOffer ? _selectedSellerContact : null,
+            );
+    final sellerPhone = sellerContact?['phone_number']?.toString().trim() ?? '';
+    final sellerLocation =
+        sellerContact?['location']?.toString().trim().isNotEmpty == true
+            ? sellerContact!['location'].toString()
+            : senderLocation;
     final time = _formatTime(message['created_at']?.toString());
 
     return Align(
@@ -592,37 +640,78 @@ class _PartRequestThreadScreenState extends State<PartRequestThreadScreen> {
                 '₦${message['offer_price']} • ${message['offer_condition']}',
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
-              if (selectedOffer && !widget.sellerMode) ...[
+              if (!widget.sellerMode) ...[
                 const SizedBox(height: 4),
-                Text(
-                  'Location: ${_selectedSellerContact?['location']?.toString() ?? senderLocation}',
-                  style: const TextStyle(
-                    color: AppColors.greyText,
-                    fontSize: 11,
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Location: $sellerLocation',
+                        style: const TextStyle(
+                          color: AppColors.greyText,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Copy seller location',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: sellerLocation == 'Location not provided'
+                          ? null
+                          : () => _copyContactValue(
+                                sellerLocation,
+                                'Seller location',
+                              ),
+                      icon: const Icon(Icons.copy, size: 16),
+                    ),
+                  ],
                 ),
-                if ((_selectedSellerContact?['phone_number']
-                            ?.toString()
-                            .trim() ??
-                        '')
-                    .isNotEmpty)
-                  TextButton.icon(
-                    onPressed: _callSelectedSeller,
-                    icon: const Icon(Icons.call_outlined, size: 16),
-                    label: Text(
-                      _selectedSellerContact!['phone_number'].toString(),
+                if (_contactsLoading && sellerPhone.isEmpty)
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else if (sellerPhone.isNotEmpty)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton.icon(
+                          onPressed: () => _callSeller(sellerPhone),
+                          icon: const Icon(Icons.call_outlined, size: 16),
+                          label: Text(sellerPhone),
+                          style: TextButton.styleFrom(
+                            alignment: Alignment.centerLeft,
+                            padding: EdgeInsets.zero,
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Copy seller phone number',
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () => _copyContactValue(
+                          sellerPhone,
+                          'Seller phone number',
+                        ),
+                        icon: const Icon(Icons.copy, size: 16),
+                      ),
+                    ],
+                  )
+                else if (_contactError != null)
+                  const Text(
+                    'Seller contact is temporarily unavailable.',
+                    style: TextStyle(
+                      color: AppColors.greyText,
+                      fontSize: 11,
                     ),
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                  ),
-                if (_contactError != null)
-                  Text(
-                    'Could not load seller contact: $_contactError',
-                    style: const TextStyle(
-                      color: AppColors.error,
+                  )
+                else
+                  const Text(
+                    'Seller has not provided a phone number.',
+                    style: TextStyle(
+                      color: AppColors.greyText,
                       fontSize: 11,
                     ),
                   ),
