@@ -58,12 +58,6 @@ class _SparePartNotificationsScreenState
   }
 
   Future<void> _enablePush() async {
-    if (_pushPublicKey.isEmpty) {
-      _showMessage('Push notifications have not been configured yet.',
-          error: true);
-      return;
-    }
-
     setState(() => _enablingPush = true);
     try {
       final permission = await requestWebPushPermission();
@@ -73,6 +67,13 @@ class _SparePartNotificationsScreenState
               ? 'Notifications are blocked for Mecho OS. Allow them in your device or browser notification settings, then try again.'
               : 'No permission was granted. Tap Enable alerts directly in Mecho OS and allow notifications when prompted.',
         );
+      }
+      if (_pushPublicKey.isEmpty) {
+        _showMessage(
+          'Permission is allowed on this device, but marketplace alerts cannot be delivered until push notifications are configured for Mecho OS.',
+          error: true,
+        );
+        return;
       }
       final subscription = await createWebPushSubscription(_pushPublicKey);
       await _repository.savePushSubscription(subscription);
@@ -314,9 +315,7 @@ class _SparePartNotificationsScreenState
               final isIos = status['isIOS'] == true;
               final isAndroid = status['isAndroid'] == true;
               final installed = status['standalone'] == true;
-              final canEnable = kIsWeb &&
-                  _pushPublicKey.isNotEmpty &&
-                  status['canRequest'] == true;
+              final canEnable = kIsWeb && status['canRequest'] == true;
               final needsIosInstall = isIos && !installed;
 
               return Column(
@@ -349,28 +348,36 @@ class _SparePartNotificationsScreenState
                             : isAndroid
                                 ? 'This device is subscribed. Manage alerts under Android Settings > Apps > Mecho OS > Notifications.'
                                 : 'This device is subscribed. Manage alert permissions in your browser or device notification settings.'
-                        : needsIosInstall
-                            ? 'Mecho OS cannot appear in iPhone Settings > Notifications yet. In Safari, tap Share > Add to Home Screen, open Mecho OS from its new Home Screen icon, then enable alerts here and choose Allow.'
-                            : status['permission'] == 'denied'
-                                ? isIos
-                                    ? 'Notifications were blocked previously. Allow Mecho OS in iPhone Settings > Notifications if listed, then reload this installed Home Screen app.'
-                                    : isAndroid
-                                        ? 'Notifications were blocked previously. Allow them in Android Settings > Apps > Mecho OS > Notifications, or in Chrome site settings, then try again.'
-                                        : 'Notifications were blocked previously. Allow them in your browser or device notification settings, then try again.'
-                                : canEnable
+                        : _pushPublicKey.isEmpty &&
+                                status['permission'] == 'granted'
+                            ? 'Notification permission is allowed, but marketplace alerts cannot be delivered until push notifications are configured for Mecho OS.'
+                            : needsIosInstall
+                                ? 'Mecho OS cannot appear in iPhone Settings > Notifications yet. In Safari, tap Share > Add to Home Screen, open Mecho OS from its new Home Screen icon, then enable alerts here and choose Allow.'
+                                : status['permission'] == 'denied'
                                     ? isIos
-                                        ? 'Tap Enable alerts and choose Allow in the iPhone prompt. After permission is granted, Mecho OS will appear in Settings > Notifications.'
+                                        ? 'Notifications were blocked previously. Allow Mecho OS in iPhone Settings > Notifications if listed, then reload this installed Home Screen app.'
                                         : isAndroid
-                                            ? 'Tap Enable alerts and choose Allow in Chrome. For an app-style experience, install Mecho OS from Chrome’s menu.'
-                                            : 'Tap Enable alerts and allow notifications when your browser prompts you.'
-                                    : kIsWeb
-                                        ? status['message']
-                                                    ?.toString()
-                                                    .isNotEmpty ==
-                                                true
-                                            ? status['message'].toString()
-                                            : 'Browser push has not been configured for this app.'
-                                        : 'Browser push alerts are available in the web app.',
+                                            ? 'Notifications were blocked previously. Allow them in Android Settings > Apps > Mecho OS > Notifications, or in Chrome site settings, then try again.'
+                                            : 'Notifications were blocked previously. Allow them in your browser or device notification settings, then try again.'
+                                    : canEnable
+                                        ? _pushPublicKey.isEmpty
+                                            ? 'Tap Enable alerts and allow notifications when prompted. Permission can be granted now, but marketplace alerts will not arrive until push notifications are configured for Mecho OS.'
+                                            : isIos
+                                                ? 'Tap Enable alerts and choose Allow in the iPhone prompt. After permission is granted, Mecho OS will appear in Settings > Notifications.'
+                                                : isAndroid
+                                                    ? 'Tap Enable alerts and choose Allow in Chrome. For an app-style experience, install Mecho OS from Chrome’s menu.'
+                                                    : 'Tap Enable alerts and allow notifications when your browser prompts you.'
+                                        : kIsWeb
+                                            ? _pushPublicKey.isEmpty
+                                                ? 'Push delivery is not configured for this app yet. You can still grant device permission, but alerts will not arrive until setup is complete.'
+                                                : status['message']
+                                                            ?.toString()
+                                                            .isNotEmpty ==
+                                                        true
+                                                    ? status['message']
+                                                        .toString()
+                                                    : 'Browser push has not been configured for this app.'
+                                            : 'Browser push alerts are available in the web app.',
                     style: const TextStyle(
                       color: AppColors.greyText,
                       fontSize: 12,

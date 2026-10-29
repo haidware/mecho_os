@@ -264,7 +264,150 @@ class _MechoAppState extends State<MechoApp> {
     if (!mounted) return;
     _homePromptCompleted = true;
     final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId != null) unawaited(_maybeShowPushSetupPrompt(userId));
+    if (userId != null) {
+      unawaited(_maybeShowPushSetupPrompt(userId));
+    } else {
+      unawaited(_maybeShowPreLoginPushSetupPrompt());
+    }
+  }
+
+  Future<void> _maybeShowPreLoginPushSetupPrompt() async {
+    if (!kIsWeb ||
+        !_homePromptCompleted ||
+        Supabase.instance.client.auth.currentUser != null) {
+      return;
+    }
+
+    try {
+      const dismissedKey = 'marketplace_push_prompt_dismissed_prelogin';
+      final preferences = await SharedPreferences.getInstance();
+      final status = await getWebPushSetupStatus();
+      if (status['supported'] != true ||
+          status['permission'] != 'default' ||
+          (preferences.getBool(dismissedKey) ?? false)) {
+        return;
+      }
+
+      final existingSubscription = await getExistingWebPushSubscription();
+      if (existingSubscription != null) return;
+      if (!mounted || Supabase.instance.client.auth.currentUser != null) {
+        return;
+      }
+      await WidgetsBinding.instance.endOfFrame;
+      final context = _navigatorKey.currentContext;
+      if (context == null || !context.mounted) return;
+
+      final canRequest = status['canRequest'] == true;
+      final deviceMessage = status['message']?.toString() ?? '';
+      final result = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) {
+          var enabling = false;
+          String? errorMessage;
+          return StatefulBuilder(
+            builder: (context, setDialogState) => AlertDialog(
+              icon: const Icon(Icons.notifications_active_outlined, size: 36),
+              title: const Text('Get marketplace notifications'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    canRequest
+                        ? 'Allow Mecho OS to send marketplace alerts before you sign in. Tap Turn on, then choose Allow in your browser prompt.'
+                        : deviceMessage.isNotEmpty
+                            ? deviceMessage
+                            : 'Notifications are not available in this browser.',
+                  ),
+                  if (canRequest && _pushPublicKey.isEmpty) ...[
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Permission can be enabled now, but marketplace alerts will not be delivered until push notifications are configured for Mecho OS.',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                  ],
+                  if (canRequest && status['isIOS'] == true) ...[
+                    const SizedBox(height: 12),
+                    const Text(
+                      'On iPhone or iPad, first add Mecho OS to the Home Screen and open it from there.',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                  ],
+                  if (errorMessage != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      errorMessage!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: enabling
+                      ? null
+                      : () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Not now'),
+                ),
+                if (canRequest)
+                  FilledButton(
+                    onPressed: enabling
+                        ? null
+                        : () async {
+                            setDialogState(() {
+                              enabling = true;
+                              errorMessage = null;
+                            });
+                            try {
+                              final permission =
+                                  await requestWebPushPermission();
+                              if (permission != 'granted') {
+                                throw StateError(
+                                  'Notification permission was not granted. Tap Turn on directly and allow notifications when prompted.',
+                                );
+                              }
+                              if (_pushPublicKey.isNotEmpty) {
+                                await createWebPushSubscription(
+                                  _pushPublicKey,
+                                );
+                              }
+                              if (dialogContext.mounted) {
+                                Navigator.of(dialogContext).pop(true);
+                              }
+                              _scaffoldMessengerKey.currentState?.showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    _pushPublicKey.isEmpty
+                                        ? 'Permission allowed. Marketplace alerts will work after push notifications are configured and you sign in.'
+                                        : 'Permission allowed. Sign in to connect alerts to your marketplace account.',
+                                  ),
+                                ),
+                              );
+                            } catch (error) {
+                              if (dialogContext.mounted) {
+                                setDialogState(() {
+                                  enabling = false;
+                                  errorMessage = error.toString();
+                                });
+                              }
+                            }
+                          },
+                    child: Text(enabling ? 'Enabling...' : 'Turn on'),
+                  ),
+              ],
+            ),
+          );
+        },
+      );
+      if (result != true) {
+        await preferences.setBool(dismissedKey, true);
+      }
+    } catch (error, stackTrace) {
+      debugPrint('Could not show pre-login notification setup: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
   }
 
   void _watchNotifications(String? userId) {
