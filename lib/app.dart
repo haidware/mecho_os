@@ -78,7 +78,6 @@ class _MechoAppState extends State<MechoApp> {
     try {
       final preferences = await SharedPreferences.getInstance();
       final dismissedKey = 'marketplace_push_prompt_dismissed_$userId';
-      if (preferences.getBool(dismissedKey) ?? false) return;
       if (!await _sparePartsRepository.canReceiveMarketplaceNotifications()) {
         return;
       }
@@ -89,6 +88,14 @@ class _MechoAppState extends State<MechoApp> {
       }
 
       final status = await getWebPushSetupStatus();
+      final isInstalledIosPwa =
+          status['isIOS'] == true && status['standalone'] == true;
+      if ((preferences.getBool(dismissedKey) ?? false) && !isInstalledIosPwa) {
+        return;
+      }
+      if (isInstalledIosPwa) {
+        await preferences.remove(dismissedKey);
+      }
       if (!mounted || Supabase.instance.client.auth.currentUser?.id != userId) {
         return;
       }

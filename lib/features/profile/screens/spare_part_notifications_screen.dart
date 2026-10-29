@@ -5,6 +5,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_routes.dart';
 import '../../../repositories/spare_parts_repository.dart';
 import '../../../services/web_push_subscription.dart';
+import '../../../shared/widgets/add_to_home_screen_dialog.dart';
 
 class SparePartNotificationsScreen extends StatefulWidget {
   const SparePartNotificationsScreen({super.key});
@@ -23,6 +24,7 @@ class _SparePartNotificationsScreenState
   final _repository = SparePartsRepository();
   late Future<List<Map<String, dynamic>>> _notifications;
   late Future<bool> _pushEnabled;
+  late Future<Map<String, dynamic>> _pushSetupStatus;
   bool _enablingPush = false;
   bool _markingAllRead = false;
 
@@ -31,6 +33,7 @@ class _SparePartNotificationsScreenState
     super.initState();
     _notifications = _repository.getNotifications();
     _pushEnabled = _isCurrentDeviceSubscribed();
+    _pushSetupStatus = getWebPushSetupStatus();
   }
 
   Future<bool> _isCurrentDeviceSubscribed() async {
@@ -43,12 +46,15 @@ class _SparePartNotificationsScreenState
   Future<void> _refresh() async {
     final notifications = _repository.getNotifications();
     final pushEnabled = _isCurrentDeviceSubscribed();
+    final pushSetupStatus = getWebPushSetupStatus();
     setState(() {
       _notifications = notifications;
       _pushEnabled = pushEnabled;
+      _pushSetupStatus = pushSetupStatus;
     });
     await notifications;
     await pushEnabled;
+    await pushSetupStatus;
   }
 
   Future<void> _enablePush() async {
@@ -62,7 +68,12 @@ class _SparePartNotificationsScreenState
     try {
       final subscription = await createWebPushSubscription(_pushPublicKey);
       await _repository.savePushSubscription(subscription);
-      if (mounted) setState(() => _pushEnabled = Future.value(true));
+      if (mounted) {
+        setState(() {
+          _pushEnabled = Future.value(true);
+          _pushSetupStatus = getWebPushSetupStatus();
+        });
+      }
       _showMessage(
         'Alerts are enabled on this device. Device notification settings control background sound and vibration.',
       );
@@ -282,66 +293,111 @@ class _SparePartNotificationsScreenState
           }
 
           final enabled = snapshot.data == true;
-          final canEnable = kIsWeb && _pushPublicKey.isNotEmpty;
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+          return FutureBuilder<Map<String, dynamic>>(
+            future: _pushSetupStatus,
+            builder: (context, statusSnapshot) {
+              if (statusSnapshot.hasError) {
+                return Text(
+                  'Could not check notification support: ${statusSnapshot.error}',
+                  style: const TextStyle(color: AppColors.error),
+                );
+              }
+              final status = statusSnapshot.data ?? const {};
+              final isIos = status['isIOS'] == true;
+              final installed = status['standalone'] == true;
+              final canEnable = kIsWeb &&
+                  _pushPublicKey.isNotEmpty &&
+                  status['canRequest'] == true;
+              final needsIosInstall = isIos && !installed;
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
+                  Row(
+                    children: [
+                      Icon(
+                        enabled
+                            ? Icons.notifications_active
+                            : Icons.notifications_none,
+                        color: enabled ? AppColors.success : AppColors.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          enabled
+                              ? 'Alerts enabled on this device'
+                              : 'Get marketplace alerts',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
                     enabled
-                        ? Icons.notifications_active
-                        : Icons.notifications_none,
-                    color: enabled ? AppColors.success : AppColors.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      enabled
-                          ? 'Alerts enabled on this device'
-                          : 'Get marketplace alerts',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                        ? 'This phone is subscribed. On iPhone, Mecho OS should now appear under Settings > Notifications. Turn on Lock Screen, Banners, Sounds, and Badges there.'
+                        : needsIosInstall
+                            ? 'Mecho OS cannot appear in iPhone Settings > Notifications yet. In Safari, tap Share > Add to Home Screen, open Mecho OS from its new Home Screen icon, then enable alerts here and choose Allow.'
+                            : status['permission'] == 'denied'
+                                ? 'Notifications were blocked previously. Allow Mecho OS in iPhone Settings > Notifications if listed, then reload this installed Home Screen app.'
+                                : canEnable
+                                    ? 'Tap Enable alerts and choose Allow in the iPhone prompt. After permission is granted, Mecho OS will appear in Settings > Notifications.'
+                                    : kIsWeb
+                                        ? status['message']
+                                                    ?.toString()
+                                                    .isNotEmpty ==
+                                                true
+                                            ? status['message'].toString()
+                                            : 'Browser push has not been configured for this app.'
+                                        : 'Browser push alerts are available in the web app.',
+                    style: const TextStyle(
+                      color: AppColors.greyText,
+                      fontSize: 12,
+                      height: 1.4,
                     ),
                   ),
+                  if (!enabled && canEnable) ...[
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: FilledButton.icon(
+                        onPressed: _enablingPush ? null : _enablePush,
+                        icon: _enablingPush
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.notifications_active_outlined,
+                              ),
+                        label: Text(
+                          _enablingPush
+                              ? 'Enabling...'
+                              : 'Enable alerts on device',
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (!enabled && needsIosInstall) ...[
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: OutlinedButton.icon(
+                        onPressed: () => showDialog<void>(
+                          context: context,
+                          builder: (_) => const AddToHomeScreenDialog(),
+                        ),
+                        icon: const Icon(Icons.ios_share),
+                        label: const Text('How to add to Home Screen'),
+                      ),
+                    ),
+                  ],
                 ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                enabled
-                    ? 'This account is subscribed on this browser. Allow notifications in device settings for lock-screen alerts; sound and vibration follow your device settings.'
-                    : canEnable
-                        ? 'Enable popup alerts for mechanics and sellers on this device. Allow notifications when your browser asks. On iPhone or iPad, add Mecho OS to the Home Screen and open it there first.'
-                        : kIsWeb
-                            ? 'Browser push has not been configured for this app.'
-                            : 'Browser push alerts are available in the web app.',
-                style: const TextStyle(
-                  color: AppColors.greyText,
-                  fontSize: 12,
-                  height: 1.4,
-                ),
-              ),
-              if (!enabled && canEnable) ...[
-                const SizedBox(height: 10),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: FilledButton.icon(
-                    onPressed: _enablingPush ? null : _enablePush,
-                    icon: _enablingPush
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Icon(Icons.notifications_active_outlined),
-                    label: Text(
-                      _enablingPush ? 'Enabling...' : 'Enable alerts on device',
-                    ),
-                  ),
-                ),
-              ],
-            ],
+              );
+            },
           );
         },
       ),

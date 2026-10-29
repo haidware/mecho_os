@@ -77,10 +77,12 @@ and workshop address from Supabase instead of asking for them again.
 New marketplace notifications show an in-app alert while Mecho OS is open and
 send browser push alerts to enrolled devices for both mechanics and sellers.
 Each signed-in user must enable alerts from Notifications on each browser or
-device. On iPhone and iPad, install Mecho OS to the Home Screen and enable
-notifications from the installed app. Foreground alerts use a popup and
-available sound/vibration; background sound and vibration follow browser and
-device notification settings.
+device. On iPhone and iPad, install Mecho OS from Safari using Share > Add to
+Home Screen, open it from the Home Screen, then allow notifications in the app.
+Until permission is granted, iOS does not list the PWA in Settings >
+Notifications. Foreground alerts use a popup and available sound/vibration;
+background sound and vibration follow browser and device notification
+settings.
 The seller portal is available at
 <https://mecho-os.onrender.com/spareparts>.
 
