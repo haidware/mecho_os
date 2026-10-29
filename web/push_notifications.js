@@ -53,6 +53,27 @@ window.mechoPush = {
       : null;
     return JSON.stringify(subscription ? subscription.toJSON() : null);
   },
+  requestPermission: function () {
+    if (!('Notification' in window)) {
+      return Promise.reject(
+        new Error('This browser does not support web notifications.')
+      );
+    }
+
+    if (
+      navigator.userActivation &&
+      !navigator.userActivation.isActive
+    ) {
+      return Promise.reject(
+        new Error(
+          'Tap Enable alerts directly from the installed Home Screen app. iPhone hides the Allow prompt unless it follows your tap.'
+        )
+      );
+    }
+
+    prepareNotificationAudio();
+    return Notification.requestPermission();
+  },
   subscribe: async function (applicationServerKey) {
     if (
       !('serviceWorker' in navigator) ||
@@ -68,8 +89,9 @@ window.mechoPush = {
       throw new Error(status.message || 'Notifications are not available in this browser.');
     }
 
-    prepareNotificationAudio();
-    const permission = await Notification.requestPermission();
+    const permission = Notification.permission === 'granted'
+      ? 'granted'
+      : await window.mechoPush.requestPermission();
     if (permission !== 'granted') {
       throw new Error(
         permission === 'denied'

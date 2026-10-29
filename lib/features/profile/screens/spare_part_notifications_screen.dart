@@ -66,6 +66,14 @@ class _SparePartNotificationsScreenState
 
     setState(() => _enablingPush = true);
     try {
+      final permission = await requestWebPushPermission();
+      if (permission != 'granted') {
+        throw StateError(
+          permission == 'denied'
+              ? 'Notifications are blocked. Open iPhone Settings > Notifications for Mecho OS, or reinstall it from Safari using Add to Home Screen.'
+              : 'No permission was granted. Open Mecho OS from its Home Screen icon and tap Enable alerts directly.',
+        );
+      }
       final subscription = await createWebPushSubscription(_pushPublicKey);
       await _repository.savePushSubscription(subscription);
       if (mounted) {

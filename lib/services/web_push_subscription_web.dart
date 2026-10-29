@@ -13,6 +13,9 @@ external JSString _getSetupStatus();
 @JS('window.mechoPush.getSubscription')
 external JSPromise<JSString> _getSubscription();
 
+@JS('window.mechoPush.requestPermission')
+external JSPromise<JSString> _requestPermission();
+
 Future<Map<String, dynamic>> getWebPushSetupStatus() async {
   final json = _getSetupStatus().toDart;
   final decoded = jsonDecode(json);
@@ -31,6 +34,10 @@ Future<Map<String, dynamic>?> getExistingWebPushSubscription() async {
         'Could not read this device’s push subscription.');
   }
   return decoded;
+}
+
+Future<String> requestWebPushPermission() {
+  return _requestPermission().toDart.then((permission) => permission.toDart);
 }
 
 Future<Map<String, dynamic>> createWebPushSubscription(String publicKey) async {

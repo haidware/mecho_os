@@ -9,6 +9,10 @@ Future<Map<String, dynamic>?> getExistingWebPushSubscription() {
   return platform.getExistingWebPushSubscription();
 }
 
+Future<String> requestWebPushPermission() {
+  return platform.requestWebPushPermission();
+}
+
 Future<Map<String, dynamic>> createWebPushSubscription(String publicKey) {
   return platform.createWebPushSubscription(publicKey);
 }

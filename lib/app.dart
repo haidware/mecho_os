@@ -161,6 +161,15 @@ class _MechoAppState extends State<MechoApp> {
                               errorMessage = null;
                             });
                             try {
+                              final permission =
+                                  await requestWebPushPermission();
+                              if (permission != 'granted') {
+                                throw StateError(
+                                  permission == 'denied'
+                                      ? 'Notifications are blocked for Mecho OS. Open Settings > Notifications after installing this app from the iPhone Home Screen.'
+                                      : 'iPhone did not grant notification permission. Reopen Mecho OS from its Home Screen icon and tap Turn on directly.',
+                                );
+                              }
                               final subscription =
                                   await createWebPushSubscription(
                                       _pushPublicKey);
