@@ -166,8 +166,8 @@ class _MechoAppState extends State<MechoApp> {
                               if (permission != 'granted') {
                                 throw StateError(
                                   permission == 'denied'
-                                      ? 'Notifications are blocked for Mecho OS. Open Settings > Notifications after installing this app from the iPhone Home Screen.'
-                                      : 'iPhone did not grant notification permission. Reopen Mecho OS from its Home Screen icon and tap Turn on directly.',
+                                      ? 'Notifications are blocked for Mecho OS. Allow them in your device or browser notification settings, then try again.'
+                                      : 'Notification permission was not granted. Tap Turn on directly in Mecho OS and allow notifications when prompted.',
                                 );
                               }
                               final subscription =

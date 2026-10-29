@@ -70,8 +70,8 @@ class _SparePartNotificationsScreenState
       if (permission != 'granted') {
         throw StateError(
           permission == 'denied'
-              ? 'Notifications are blocked. Open iPhone Settings > Notifications for Mecho OS, or reinstall it from Safari using Add to Home Screen.'
-              : 'No permission was granted. Open Mecho OS from its Home Screen icon and tap Enable alerts directly.',
+              ? 'Notifications are blocked for Mecho OS. Allow them in your device or browser notification settings, then try again.'
+              : 'No permission was granted. Tap Enable alerts directly in Mecho OS and allow notifications when prompted.',
         );
       }
       final subscription = await createWebPushSubscription(_pushPublicKey);
@@ -312,6 +312,7 @@ class _SparePartNotificationsScreenState
               }
               final status = statusSnapshot.data ?? const {};
               final isIos = status['isIOS'] == true;
+              final isAndroid = status['isAndroid'] == true;
               final installed = status['standalone'] == true;
               final canEnable = kIsWeb &&
                   _pushPublicKey.isNotEmpty &&
@@ -343,13 +344,25 @@ class _SparePartNotificationsScreenState
                   const SizedBox(height: 6),
                   Text(
                     enabled
-                        ? 'This phone is subscribed. On iPhone, Mecho OS should now appear under Settings > Notifications. Turn on Lock Screen, Banners, Sounds, and Badges there.'
+                        ? isIos
+                            ? 'This phone is subscribed. Mecho OS should now appear under Settings > Notifications. Turn on Lock Screen, Banners, Sounds, and Badges there.'
+                            : isAndroid
+                                ? 'This device is subscribed. Manage alerts under Android Settings > Apps > Mecho OS > Notifications.'
+                                : 'This device is subscribed. Manage alert permissions in your browser or device notification settings.'
                         : needsIosInstall
                             ? 'Mecho OS cannot appear in iPhone Settings > Notifications yet. In Safari, tap Share > Add to Home Screen, open Mecho OS from its new Home Screen icon, then enable alerts here and choose Allow.'
                             : status['permission'] == 'denied'
-                                ? 'Notifications were blocked previously. Allow Mecho OS in iPhone Settings > Notifications if listed, then reload this installed Home Screen app.'
+                                ? isIos
+                                    ? 'Notifications were blocked previously. Allow Mecho OS in iPhone Settings > Notifications if listed, then reload this installed Home Screen app.'
+                                    : isAndroid
+                                        ? 'Notifications were blocked previously. Allow them in Android Settings > Apps > Mecho OS > Notifications, or in Chrome site settings, then try again.'
+                                        : 'Notifications were blocked previously. Allow them in your browser or device notification settings, then try again.'
                                 : canEnable
-                                    ? 'Tap Enable alerts and choose Allow in the iPhone prompt. After permission is granted, Mecho OS will appear in Settings > Notifications.'
+                                    ? isIos
+                                        ? 'Tap Enable alerts and choose Allow in the iPhone prompt. After permission is granted, Mecho OS will appear in Settings > Notifications.'
+                                        : isAndroid
+                                            ? 'Tap Enable alerts and choose Allow in Chrome. For an app-style experience, install Mecho OS from Chrome’s menu.'
+                                            : 'Tap Enable alerts and allow notifications when your browser prompts you.'
                                     : kIsWeb
                                         ? status['message']
                                                     ?.toString()

@@ -17,6 +17,7 @@ window.mechoPush = {
     const isIOS =
       /iPad|iPhone|iPod/.test(userAgent) ||
       (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isAndroid = /Android/i.test(userAgent);
     const standalone =
       navigator.standalone === true ||
       window.matchMedia('(display-mode: standalone)').matches;
@@ -31,12 +32,15 @@ window.mechoPush = {
     } else if (isIOS && !standalone) {
       message = 'On iPhone or iPad, first use Share > Add to Home Screen, then open Mecho OS from its Home Screen icon. iOS only allows web push from the installed app.';
     } else if (Notification.permission === 'denied') {
-      message = 'Notifications are blocked for this app. Allow them in your phone settings, then return to Mecho OS.';
+      message = isAndroid
+        ? 'Notifications are blocked. Allow them in Android Settings > Apps > Mecho OS > Notifications, or in Chrome site settings.'
+        : 'Notifications are blocked for this app. Allow them in your device or browser settings, then return to Mecho OS.';
     }
 
     return JSON.stringify({
       supported,
       isIOS,
+      isAndroid,
       standalone,
       permission: supported ? Notification.permission : 'unsupported',
       canRequest: supported && Notification.permission !== 'denied' && (!isIOS || standalone),
@@ -66,7 +70,7 @@ window.mechoPush = {
     ) {
       return Promise.reject(
         new Error(
-          'Tap Enable alerts directly from the installed Home Screen app. iPhone hides the Allow prompt unless it follows your tap.'
+          'Tap Enable alerts directly in Mecho OS. Your browser may block the permission prompt unless it follows your tap.'
         )
       );
     }
